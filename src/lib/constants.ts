@@ -3,4 +3,5 @@ export const CONFIG = {
 	HASHI_OBJECT_ID: import.meta.env.VITE_HASHI_OBJECT_ID ?? '',
 	HASHI_PACKAGE_ID: import.meta.env.VITE_HASHI_PACKAGE_ID ?? '',
 	SUI_RPC_URL: import.meta.env.VITE_SUI_RPC_URL ?? '',
+	BTC_RPC_URL: import.meta.env.VITE_BTC_RPC_URL ?? '',
 } as const;

@@ -72,6 +72,7 @@ Environment variables (see `.env.devnet`):
 | `VITE_SUI_RPC_URL` | Sui RPC endpoint URL |
 | `VITE_HASHI_PACKAGE_ID` | Deployed Hashi Move package ID |
 | `VITE_HASHI_OBJECT_ID` | Hashi shared object ID |
+| `VITE_BTC_RPC_URL` | Bitcoin JSON-RPC endpoint (for tx lookup) |
 
 To target a different network, create a `.env.testnet` or `.env.mainnet` file and run:
 

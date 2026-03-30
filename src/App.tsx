@@ -91,6 +91,58 @@ function useDepositAddress(recipient: string | undefined) {
 }
 
 // ============================================================================
+// SECTION 1b: Look Up Bitcoin Transaction
+// ============================================================================
+
+/**
+ * Fetches a Bitcoin transaction via JSON-RPC and finds the output matching
+ * the user's deposit address. Returns the vout index and amount in satoshis.
+ *
+ * Uses `getrawtransaction` with verbose=true to get decoded output details,
+ * then matches against the derived deposit address.
+ */
+function useBtcTransaction(txid: string | undefined, depositAddress: string | undefined) {
+	return useQuery({
+		queryKey: ['btc-tx', txid],
+		queryFn: async () => {
+			if (!txid || !depositAddress) return null;
+
+			const res = await fetch(CONFIG.BTC_RPC_URL, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					jsonrpc: '2.0',
+					id: 1,
+					method: 'getrawtransaction',
+					params: [txid.trim(), true],
+				}),
+			});
+
+			const json = await res.json();
+			if (json.error) throw new Error(json.error.message);
+
+			const tx = json.result;
+			const matchingOutput = tx.vout.find(
+				(out: { scriptPubKey: { address?: string } }) =>
+					out.scriptPubKey.address === depositAddress,
+			);
+
+			if (!matchingOutput) {
+				throw new Error(`No output found matching your deposit address ${depositAddress}`);
+			}
+
+			return {
+				vout: matchingOutput.n as number,
+				amountSats: BigInt(Math.round(matchingOutput.value * 1e8)),
+				amountBtc: (matchingOutput.value as number).toFixed(8),
+			};
+		},
+		enabled: !!txid && txid.length === 64 && !!depositAddress && !!CONFIG.BTC_RPC_URL,
+		retry: false,
+	});
+}
+
+// ============================================================================
 // SECTION 2: Create Deposit Request
 // ============================================================================
 
@@ -469,8 +521,9 @@ export default function App() {
 			)}
 
 			<div className="mt-12 text-xs text-gray-600 border-t border-gray-800 pt-6 space-y-1">
-				<p>Network: {CONFIG.DEFAULT_NETWORK} | Package: {CONFIG.HASHI_PACKAGE_ID.slice(0, 10)}...</p>
-				<p>Hashi Object: {CONFIG.HASHI_OBJECT_ID.slice(0, 10)}...</p>
+				<p>Network: {CONFIG.DEFAULT_NETWORK}</p>
+				<p>Package: <a href={`https://suiscan.xyz/${CONFIG.DEFAULT_NETWORK}/object/${CONFIG.HASHI_PACKAGE_ID}`} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 break-all">{CONFIG.HASHI_PACKAGE_ID}</a></p>
+				<p>Hashi Object: <a href={`https://suiscan.xyz/${CONFIG.DEFAULT_NETWORK}/object/${CONFIG.HASHI_OBJECT_ID}`} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 break-all">{CONFIG.HASHI_OBJECT_ID}</a></p>
 			</div>
 		</div>
 	);
@@ -498,23 +551,26 @@ function DepositPanel() {
 
 	const [step, setStep] = useState<'address' | 'submit' | 'status'>('address');
 	const [txid, setTxid] = useState('');
-	const [vout, setVout] = useState('0');
-	const [amount, setAmount] = useState('');
 	const [resultDigest, setResultDigest] = useState('');
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState('');
 
+	const { data: btcTx, error: btcTxError, isLoading: btcTxLoading } = useBtcTransaction(
+		txid.trim().length === 64 ? txid.trim() : undefined,
+		addressData?.address,
+	);
+
 	const { data: status } = useDepositStatus(resultDigest || undefined);
 
 	const handleSubmit = async () => {
-		if (!account) return;
+		if (!account || !btcTx) return;
 		setError('');
 		setSubmitting(true);
 		try {
 			const result = await createDeposit(
 				txid.trim(),
-				parseInt(vout),
-				BigInt(Math.round(parseFloat(amount) * 1e8)),
+				btcTx.vout,
+				btcTx.amountSats,
 				account.address,
 			);
 			setResultDigest(result.Transaction!.digest);
@@ -535,6 +591,7 @@ function DepositPanel() {
 					<p className="text-sm text-gray-400">
 						This address is uniquely derived from your Sui wallet address and the Hashi MPC committee key.
 						Send BTC to this address to begin a deposit.
+						Need testnet BTC? <a href="https://coinfaucet.eu/en/btc-testnet4/" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">Get some from the faucet</a>.
 					</p>
 
 					{addressLoading ? (
@@ -561,47 +618,45 @@ function DepositPanel() {
 				</div>
 			)}
 
-			{/* Step 2: Enter Bitcoin transaction details */}
+			{/* Step 2: Enter Bitcoin txid — vout and amount are auto-detected */}
 			{step === 'submit' && (
 				<div className="space-y-4">
 					<h2 className="text-lg font-semibold">Step 2: Submit Deposit Request</h2>
 					<p className="text-sm text-gray-400">
-						Enter the Bitcoin transaction ID (txid), output index (vout), and amount.
+						Enter the Bitcoin transaction ID. The output and amount are detected automatically.
 					</p>
 
-					<div className="space-y-3">
-						<div>
-							<label className="block text-xs text-gray-500 mb-1">Bitcoin Transaction ID</label>
-							<input
-								type="text"
-								value={txid}
-								onChange={(e) => setTxid(e.target.value)}
-								placeholder="e.g. a1b2c3d4..."
-								className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
-							/>
-						</div>
-						<div className="grid grid-cols-2 gap-3">
-							<div>
-								<label className="block text-xs text-gray-500 mb-1">Output Index (vout)</label>
-								<input
-									type="number"
-									value={vout}
-									onChange={(e) => setVout(e.target.value)}
-									className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
-								/>
-							</div>
-							<div>
-								<label className="block text-xs text-gray-500 mb-1">Amount (BTC)</label>
-								<input
-									type="text"
-									value={amount}
-									onChange={(e) => setAmount(e.target.value)}
-									placeholder="0.001"
-									className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
-								/>
-							</div>
-						</div>
+					<div>
+						<label className="block text-xs text-gray-500 mb-1">Bitcoin Transaction ID</label>
+						<input
+							type="text"
+							value={txid}
+							onChange={(e) => setTxid(e.target.value)}
+							placeholder="64-character hex txid"
+							className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+						/>
 					</div>
+
+					{btcTxLoading && (
+						<p className="text-gray-500 text-sm">Looking up transaction...</p>
+					)}
+
+					{btcTx && (
+						<div className="bg-gray-900 p-4 rounded-lg space-y-2">
+							<div className="flex justify-between text-sm">
+								<span className="text-gray-400">Output index (vout):</span>
+								<span>{btcTx.vout}</span>
+							</div>
+							<div className="flex justify-between text-sm">
+								<span className="text-gray-400">Amount:</span>
+								<span>{btcTx.amountBtc} BTC</span>
+							</div>
+						</div>
+					)}
+
+					{btcTxError && (
+						<p className="text-red-400 text-sm">{btcTxError instanceof Error ? btcTxError.message : 'Failed to look up transaction'}</p>
+					)}
 
 					{error && <p className="text-red-400 text-sm">{error}</p>}
 
@@ -614,7 +669,7 @@ function DepositPanel() {
 						</button>
 						<button
 							onClick={handleSubmit}
-							disabled={submitting || !txid || !amount}
+							disabled={submitting || !btcTx}
 							className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-medium transition-colors"
 						>
 							{submitting ? 'Signing...' : 'Submit Deposit'}
@@ -657,7 +712,7 @@ function DepositPanel() {
 						)}
 					</div>
 					<button
-						onClick={() => { setStep('address'); setResultDigest(''); setTxid(''); setAmount(''); }}
+						onClick={() => { setStep('address'); setResultDigest(''); setTxid(''); }}
 						className="w-full py-3 bg-gray-800 hover:bg-gray-700 rounded-lg font-medium transition-colors"
 					>
 						New Deposit
