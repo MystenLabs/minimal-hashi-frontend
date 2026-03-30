@@ -143,8 +143,57 @@ function useBtcTransaction(txid: string | undefined, depositAddress: string | un
 }
 
 // ============================================================================
-// SECTION 2: Create Deposit Request
+// SECTION 2: Deposit Fee + Create Deposit Request
 // ============================================================================
+
+/**
+ * Reads the protocol deposit fee from the on-chain Hashi config.
+ *
+ * The fee is stored in the config VecMap under the key "deposit_fee" as a U64
+ * value in MIST (SUI's smallest unit). The deposit() Move function requires
+ * an exact match — sending 0 will abort.
+ */
+function useDepositFee() {
+	const client = useCurrentClient();
+
+	return useQuery({
+		queryKey: ['deposit-fee'],
+		queryFn: async () => {
+			const hashiObject = await client.getObject({
+				id: CONFIG.HASHI_OBJECT_ID,
+				options: { showContent: true },
+			});
+
+			const content = hashiObject.data?.content;
+			if (!content || content.dataType !== 'moveObject') return 0n;
+
+			const fields = content.fields as Record<string, unknown>;
+			const configField = fields.config as Record<string, unknown> | undefined;
+			const configFields = configField?.fields as Record<string, unknown> | undefined;
+			const configMap = configFields?.config as Record<string, unknown> | undefined;
+			const configMapFields = configMap?.fields as Record<string, unknown> | undefined;
+			const contents = configMapFields?.contents as Array<Record<string, unknown>> | undefined;
+
+			if (contents) {
+				for (const entry of contents) {
+					const entryFields = entry.fields as Record<string, unknown> | undefined;
+					if (entryFields?.key === 'deposit_fee') {
+						const valueObj = entryFields.value as Record<string, unknown>;
+						if (valueObj?.variant === 'U64') {
+							const valFields = valueObj.fields as Record<string, string>;
+							return BigInt(valFields.pos0 ?? '0');
+						}
+						break;
+					}
+				}
+			}
+
+			return 0n;
+		},
+		enabled: !!CONFIG.HASHI_OBJECT_ID,
+		staleTime: 60_000,
+	});
+}
 
 /**
  * Submits a deposit request on-chain after the user has sent BTC.
@@ -158,9 +207,11 @@ function useBtcTransaction(txid: string | undefined, depositAddress: string | un
  */
 function useCreateDeposit() {
 	const dAppKit = useDAppKit();
+	const { data: depositFee } = useDepositFee();
 
 	return async (txid: string, vout: number, amountSats: bigint, recipient: string) => {
 		const pkg = CONFIG.HASHI_PACKAGE_ID;
+		const fee = depositFee ?? 0n;
 
 		// Bitcoin txids are displayed in reversed byte order.
 		// The Move contract expects internal byte order (reversed from display).
@@ -185,8 +236,8 @@ function useCreateDeposit() {
 			createDepositRequest({ package: pkg, arguments: [utxoResult] }),
 		);
 
-		// Step 4: Split SUI for the protocol deposit fee (can be 0 on devnet)
-		const [feeCoin] = tx.splitCoins(tx.gas, [0n]);
+		// Step 4: Split SUI for the protocol deposit fee
+		const [feeCoin] = tx.splitCoins(tx.gas, [fee]);
 
 		// Step 5: Submit the deposit to the Hashi contract
 		tx.add(
