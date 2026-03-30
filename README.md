@@ -55,8 +55,15 @@ The entire integration is in `src/App.tsx`, organized into 7 labeled sections:
 
 ## Quick Start
 
+Requires the [Sui CLI](https://docs.sui.io/guides/developer/getting-started/sui-install) for generating contract bindings.
+
 ```bash
+# Point sui CLI at devnet (only needed once)
+sui client new-env --alias devnet --rpc https://fullnode.devnet.sui.io:443
+sui client switch --env devnet
+
 pnpm install
+pnpm codegen   # generate TypeScript contract bindings from on-chain package
 pnpm dev
 ```
 
@@ -105,18 +112,7 @@ See `src/lib/bitcoin.ts` for the full implementation.
 
 ## Contract Bindings
 
-The `contracts/` directory contains TypeScript bindings generated from the on-chain Hashi Move package using [`@mysten/codegen`](https://www.npmjs.com/package/@mysten/codegen). The generated files are committed so the repo works out of the box.
-
-To regenerate after a contract upgrade:
-
-```bash
-# Requires the sui CLI — install from https://docs.sui.io/guides/developer/getting-started/sui-install
-# Point the sui CLI at the correct network first:
-sui client new-env --alias devnet --rpc https://fullnode.devnet.sui.io:443  # only needed once
-sui client switch --env devnet
-
-pnpm codegen
-```
+The `contracts/src/` directory contains TypeScript bindings generated from the on-chain Hashi Move package using [`@mysten/codegen`](https://www.npmjs.com/package/@mysten/codegen). These files are gitignored and must be generated locally via `pnpm codegen` (requires the `sui` CLI pointed at devnet).
 
 The codegen config is in `contracts/sui-codegen.config.ts`. Only the modules used by this demo are generated:
 
