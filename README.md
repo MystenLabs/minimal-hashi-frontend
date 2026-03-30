@@ -8,7 +8,7 @@ A simplified, single-page reference implementation of the [Hashi](https://github
 
 1. **Derive deposit address** — Each Sui wallet gets a unique Bitcoin P2TR (taproot) address, derived from the MPC committee's public key + the user's Sui address using HKDF-SHA3-256.
 2. **Send BTC** — User sends Bitcoin to their derived address (outside this app).
-3. **Submit deposit request** — User enters the Bitcoin txid, output index, and amount. The app builds a Sui transaction that creates a `DepositRequest` on-chain.
+3. **Submit deposit request** — User enters the Bitcoin txid. The output index and amount are auto-detected via Bitcoin JSON-RPC. The app builds a Sui transaction that creates a `DepositRequest` on-chain.
 4. **Poll for confirmation** — The app queries `DepositConfirmedEvent` every 15s until the deposit is confirmed (6 BTC confirmations + committee verification) or expired.
 
 ### Withdrawal Flow (hBTC → BTC)
@@ -26,27 +26,24 @@ Paste any Sui transaction digest to check the on-chain status of a deposit or wi
 ```
 src/
 ├── App.tsx              # All integration logic + UI in one annotated file
-├── main.tsx             # Sui wallet + React Query setup
+├── main.tsx             # dApp Kit provider + React Query setup
+├── dapp-kit.ts          # dApp Kit 2.0 configuration (client, networks)
 └── lib/
     ├── constants.ts     # Package/object IDs from env vars
     └── bitcoin.ts       # P2TR address derivation (HKDF + taproot)
 
-contracts/src/           # Generated Move contract bindings (via sui-ts-codegen)
-├── hashi/
-│   ├── deposit.ts       # deposit()
-│   ├── deposit_queue.ts # depositRequest()
-│   ├── utxo.ts          # utxoId(), utxo()
-│   ├── withdraw.ts      # requestWithdrawal()
-│   └── withdrawal_queue.ts  # Event types
-└── utils/index.ts       # Binding utilities
+contracts/
+├── sui-codegen.config.ts  # Codegen config (on-chain package ID, modules)
+└── src/                   # Generated bindings (gitignored, run pnpm codegen)
 ```
 
-The entire integration is in `src/App.tsx`, organized into 7 labeled sections:
+The entire integration is in `src/App.tsx`, organized into labeled sections:
 
 | Section | Hook | Purpose |
 |---------|------|---------|
 | 1 | `useDepositAddress()` | Derive unique BTC deposit address from Sui wallet |
-| 2 | `useCreateDeposit()` | Build + sign the deposit request transaction |
+| 1b | `useBtcTransaction()` | Look up Bitcoin tx via JSON-RPC, auto-detect vout + amount |
+| 2 | `useDepositFee()` / `useCreateDeposit()` | Read on-chain fee, build + sign deposit transaction |
 | 3 | `useDepositStatus()` | Poll on-chain events for deposit confirmation |
 | 4 | `useCreateWithdrawal()` | Build + sign the withdrawal request transaction |
 | 5 | `useWithdrawalStatus()` | Poll withdrawal queue + events for status |
