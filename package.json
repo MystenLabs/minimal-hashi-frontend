@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite --mode devnet",
-    "build": "tsc && vite build"
+    "build": "tsc && vite build",
+    "codegen": "sui-ts-codegen generate --outputDir contracts/src -m deposit,deposit_queue,utxo,withdraw,withdrawal_queue 0xe87f0c85488c5c442612103a08e5df93d2f190cdb0456b667f5257be506aefc7"
   },
   "dependencies": {
     "@mysten/dapp-kit-core": "^1.2.1",
@@ -19,6 +20,7 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@mysten/codegen": "^0.8.3",
     "@tailwindcss/vite": "^4.1.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
