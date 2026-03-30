@@ -544,10 +544,44 @@ function BalanceDisplay() {
 // DEPOSIT PANEL
 // ============================================================================
 
+/**
+ * Manages a list of Bitcoin txids that the user has sent to their deposit address
+ * but hasn't yet submitted on Sui. Persisted in localStorage so the user can
+ * return later and complete the deposit.
+ */
+function usePendingBtcTxids(suiAddress: string | undefined) {
+	const key = suiAddress ? `hashi-pending-btc-${suiAddress}` : null;
+
+	const getTxids = (): string[] => {
+		if (!key) return [];
+		try { return JSON.parse(localStorage.getItem(key) || '[]'); }
+		catch { return []; }
+	};
+
+	const [txids, setTxids] = useState<string[]>(getTxids);
+
+	const add = (txid: string) => {
+		if (!key) return;
+		const updated = [...new Set([txid, ...getTxids()])];
+		localStorage.setItem(key, JSON.stringify(updated));
+		setTxids(updated);
+	};
+
+	const remove = (txid: string) => {
+		if (!key) return;
+		const updated = getTxids().filter((t) => t !== txid);
+		localStorage.setItem(key, JSON.stringify(updated));
+		setTxids(updated);
+	};
+
+	return { txids, add, remove };
+}
+
 function DepositPanel() {
 	const account = useCurrentAccount();
 	const { data: addressData, isLoading: addressLoading } = useDepositAddress(account?.address);
 	const createDeposit = useCreateDeposit();
+	const pending = usePendingBtcTxids(account?.address);
 
 	const [step, setStep] = useState<'address' | 'submit' | 'status'>('address');
 	const [txid, setTxid] = useState('');
@@ -567,12 +601,14 @@ function DepositPanel() {
 		setError('');
 		setSubmitting(true);
 		try {
+			const trimmedTxid = txid.trim();
 			const result = await createDeposit(
-				txid.trim(),
+				trimmedTxid,
 				btcTx.vout,
 				btcTx.amountSats,
 				account.address,
 			);
+			pending.remove(trimmedTxid);
 			setResultDigest(result.Transaction!.digest);
 			setStep('status');
 		} catch (e) {
@@ -609,6 +645,35 @@ function DepositPanel() {
 						</div>
 					) : null}
 
+					{/* Show pending BTC transactions that haven't been submitted on Sui yet */}
+					{pending.txids.length > 0 && (
+						<div className="bg-yellow-900/30 border border-yellow-800 p-4 rounded-lg space-y-2">
+							<p className="text-sm text-yellow-300 font-medium">Pending BTC deposits</p>
+							<p className="text-xs text-yellow-400/80">
+								You sent BTC but haven't submitted the deposit on Sui yet. Your BTC is safe — you can submit anytime.
+							</p>
+							{pending.txids.map((pendingTxid) => (
+								<div key={pendingTxid} className="flex items-center justify-between gap-2">
+									<code className="text-xs text-yellow-400 truncate">{pendingTxid}</code>
+									<div className="flex gap-2 shrink-0">
+										<button
+											onClick={() => { setTxid(pendingTxid); setStep('submit'); }}
+											className="text-xs text-blue-400 hover:text-blue-300"
+										>
+											Submit now
+										</button>
+										<button
+											onClick={() => pending.remove(pendingTxid)}
+											className="text-xs text-gray-500 hover:text-gray-300"
+										>
+											Dismiss
+										</button>
+									</div>
+								</div>
+							))}
+						</div>
+					)}
+
 					<button
 						onClick={() => setStep('submit')}
 						className="w-full py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium transition-colors"
@@ -631,7 +696,11 @@ function DepositPanel() {
 						<input
 							type="text"
 							value={txid}
-							onChange={(e) => setTxid(e.target.value)}
+							onChange={(e) => {
+								setTxid(e.target.value);
+								const trimmed = e.target.value.trim();
+								if (trimmed.length === 64) pending.add(trimmed);
+							}}
 							placeholder="64-character hex txid"
 							className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
 						/>
@@ -659,6 +728,10 @@ function DepositPanel() {
 					)}
 
 					{error && <p className="text-red-400 text-sm">{error}</p>}
+
+					<p className="text-xs text-gray-600">
+						Not ready to submit? No worries — your BTC is safe at the deposit address. This txid is saved locally so you can come back and submit later.
+					</p>
 
 					<div className="flex gap-3">
 						<button
