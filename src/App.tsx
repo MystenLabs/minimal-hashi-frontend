@@ -497,6 +497,7 @@ export default function App() {
 			) : (
 				<>
 					<BalanceDisplay />
+					<DepositAddressDisplay />
 
 					<div className="flex gap-1 mb-6 bg-gray-900 rounded-lg p-1">
 						{(['deposit', 'withdraw', 'lookup'] as const).map((tab) => (
@@ -540,6 +541,38 @@ function BalanceDisplay() {
 	);
 }
 
+function DepositAddressDisplay() {
+	const account = useCurrentAccount();
+	const { data: addressData, isLoading } = useDepositAddress(account?.address);
+	const mempoolBase = CONFIG.DEFAULT_NETWORK === 'mainnet' ? 'https://mempool.space' : 'https://mempool.space/testnet4';
+
+	if (isLoading) return <p className="mb-6 text-gray-500">Deriving deposit address...</p>;
+	if (!addressData) return null;
+
+	return (
+		<div className="mb-6 p-4 bg-gray-900 rounded-lg space-y-2">
+			<label className="text-xs text-gray-500">Your BTC deposit address:</label>
+			<code className="block text-sm break-all text-blue-400">{addressData.address}</code>
+			<div className="flex gap-3">
+				<button
+					onClick={() => navigator.clipboard.writeText(addressData.address)}
+					className="text-xs text-gray-400 hover:text-white"
+				>
+					Copy to clipboard
+				</button>
+				<a
+					href={`${mempoolBase}/address/${addressData.address}`}
+					target="_blank"
+					rel="noopener noreferrer"
+					className="text-xs text-blue-400 hover:text-blue-300"
+				>
+					View on mempool.space
+				</a>
+			</div>
+		</div>
+	);
+}
+
 // ============================================================================
 // DEPOSIT PANEL
 // ============================================================================
@@ -579,7 +612,7 @@ function usePendingBtcTxids(suiAddress: string | undefined) {
 
 function DepositPanel() {
 	const account = useCurrentAccount();
-	const { data: addressData, isLoading: addressLoading } = useDepositAddress(account?.address);
+	const { data: addressData } = useDepositAddress(account?.address);
 	const createDeposit = useCreateDeposit();
 	const pending = usePendingBtcTxids(account?.address);
 
@@ -618,36 +651,8 @@ function DepositPanel() {
 		}
 	};
 
-	const mempoolBase = CONFIG.DEFAULT_NETWORK === 'mainnet' ? 'https://mempool.space' : 'https://mempool.space/testnet4';
-
 	return (
 		<div className="space-y-6">
-			{/* Always show the derived deposit address */}
-			{addressLoading ? (
-				<p className="text-gray-500">Deriving address...</p>
-			) : addressData ? (
-				<div className="bg-gray-900 p-4 rounded-lg space-y-2">
-					<label className="text-xs text-gray-500">Your BTC deposit address:</label>
-					<code className="block text-sm break-all text-blue-400">{addressData.address}</code>
-					<div className="flex gap-3">
-						<button
-							onClick={() => navigator.clipboard.writeText(addressData.address)}
-							className="text-xs text-gray-400 hover:text-white"
-						>
-							Copy to clipboard
-						</button>
-						<a
-							href={`${mempoolBase}/address/${addressData.address}`}
-							target="_blank"
-							rel="noopener noreferrer"
-							className="text-xs text-blue-400 hover:text-blue-300"
-						>
-							View on mempool.space
-						</a>
-					</div>
-				</div>
-			) : null}
-
 			{/* Step 1: Instructions + pending deposits */}
 			{step === 'address' && (
 				<div className="space-y-4">
