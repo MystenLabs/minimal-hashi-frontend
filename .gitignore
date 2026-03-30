@@ -1,3 +1,4 @@
 node_modules
 dist
-contracts/src/
+commit this so we can deploy on vercel
+# contracts/src/
