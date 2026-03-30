@@ -618,32 +618,45 @@ function DepositPanel() {
 		}
 	};
 
+	const mempoolBase = CONFIG.DEFAULT_NETWORK === 'mainnet' ? 'https://mempool.space' : 'https://mempool.space/testnet4';
+
 	return (
 		<div className="space-y-6">
-			{/* Step 1: Show the derived deposit address */}
+			{/* Always show the derived deposit address */}
+			{addressLoading ? (
+				<p className="text-gray-500">Deriving address...</p>
+			) : addressData ? (
+				<div className="bg-gray-900 p-4 rounded-lg space-y-2">
+					<label className="text-xs text-gray-500">Your BTC deposit address:</label>
+					<code className="block text-sm break-all text-blue-400">{addressData.address}</code>
+					<div className="flex gap-3">
+						<button
+							onClick={() => navigator.clipboard.writeText(addressData.address)}
+							className="text-xs text-gray-400 hover:text-white"
+						>
+							Copy to clipboard
+						</button>
+						<a
+							href={`${mempoolBase}/address/${addressData.address}`}
+							target="_blank"
+							rel="noopener noreferrer"
+							className="text-xs text-blue-400 hover:text-blue-300"
+						>
+							View on mempool.space
+						</a>
+					</div>
+				</div>
+			) : null}
+
+			{/* Step 1: Instructions + pending deposits */}
 			{step === 'address' && (
 				<div className="space-y-4">
-					<h2 className="text-lg font-semibold">Step 1: Your Bitcoin Deposit Address</h2>
+					<h2 className="text-lg font-semibold">Step 1: Send BTC to Your Deposit Address</h2>
 					<p className="text-sm text-gray-400">
-						This address is uniquely derived from your Sui wallet address and the Hashi MPC committee key.
-						Send BTC to this address to begin a deposit.
+						The address above is uniquely derived from your Sui wallet and the Hashi MPC committee key.
+						Send BTC to it to begin a deposit.
 						Need testnet BTC? <a href="https://coinfaucet.eu/en/btc-testnet4/" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">Get some from the faucet</a>.
 					</p>
-
-					{addressLoading ? (
-						<p className="text-gray-500">Deriving address...</p>
-					) : addressData ? (
-						<div className="bg-gray-900 p-4 rounded-lg space-y-2">
-							<label className="text-xs text-gray-500">Your BTC deposit address:</label>
-							<code className="block text-sm break-all text-blue-400">{addressData.address}</code>
-							<button
-								onClick={() => navigator.clipboard.writeText(addressData.address)}
-								className="text-xs text-gray-400 hover:text-white"
-							>
-								Copy to clipboard
-							</button>
-						</div>
-					) : null}
 
 					{/* Show pending BTC transactions that haven't been submitted on Sui yet */}
 					{pending.txids.length > 0 && (
