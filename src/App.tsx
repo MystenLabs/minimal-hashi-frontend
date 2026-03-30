@@ -20,11 +20,11 @@
 
 import { useState } from 'react';
 import {
-	ConnectButton,
 	useCurrentAccount,
-	useSignAndExecuteTransaction,
-	useSuiClient,
-} from '@mysten/dapp-kit';
+	useCurrentClient,
+	useDAppKit,
+} from '@mysten/dapp-kit-react';
+import { ConnectButton } from '@mysten/dapp-kit-react/ui';
 import { Transaction, coinWithBalance } from '@mysten/sui/transactions';
 import { useQuery } from '@tanstack/react-query';
 
@@ -53,7 +53,7 @@ import { requestWithdrawal } from '@contracts/hashi/withdraw';
  * Each Sui address gets a deterministic, unique Bitcoin deposit address.
  */
 function useDepositAddress(recipient: string | undefined) {
-	const client = useSuiClient();
+	const client = useCurrentClient();
 	const network = CONFIG.DEFAULT_NETWORK === 'mainnet' ? 'mainnet' : CONFIG.DEFAULT_NETWORK === 'localnet' ? 'regtest' : 'testnet';
 
 	return useQuery({
@@ -105,7 +105,7 @@ function useDepositAddress(recipient: string | undefined) {
  * 5. deposit(hashi, request, fee)  → submits to the Hashi contract
  */
 function useCreateDeposit() {
-	const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
+	const dAppKit = useDAppKit();
 
 	return async (txid: string, vout: number, amountSats: bigint, recipient: string) => {
 		const pkg = CONFIG.HASHI_PACKAGE_ID;
@@ -141,7 +141,7 @@ function useCreateDeposit() {
 			deposit({ package: pkg, arguments: { hashi: CONFIG.HASHI_OBJECT_ID, request: requestResult, fee: feeCoin } }),
 		);
 
-		return signAndExecute({ transaction: tx });
+		return dAppKit.signAndExecuteTransaction({ transaction: tx });
 	};
 }
 
@@ -161,7 +161,7 @@ function useCreateDeposit() {
  * 4. Otherwise, still pending (waiting for 6 BTC confirmations)
  */
 function useDepositStatus(txDigest: string | undefined) {
-	const client = useSuiClient();
+	const client = useCurrentClient();
 	const pkg = CONFIG.HASHI_PACKAGE_ID;
 
 	return useQuery({
@@ -255,7 +255,7 @@ function useDepositStatus(txDigest: string | undefined) {
  * The protocol fee is deducted from the hBTC amount automatically.
  */
 function useCreateWithdrawal() {
-	const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
+	const dAppKit = useDAppKit();
 
 	return async (amountSats: bigint, bitcoinAddress: string) => {
 		const pkg = CONFIG.HASHI_PACKAGE_ID;
@@ -277,7 +277,7 @@ function useCreateWithdrawal() {
 			}),
 		);
 
-		return signAndExecute({ transaction: tx });
+		return dAppKit.signAndExecuteTransaction({ transaction: tx });
 	};
 }
 
@@ -295,7 +295,7 @@ function useCreateWithdrawal() {
  * If not found, queries events to determine if confirmed or cancelled.
  */
 function useWithdrawalStatus(txDigest: string | undefined) {
-	const client = useSuiClient();
+	const client = useCurrentClient();
 	const pkg = CONFIG.HASHI_PACKAGE_ID;
 
 	return useQuery({
@@ -400,7 +400,7 @@ function useWithdrawalStatus(txDigest: string | undefined) {
 // ============================================================================
 
 function useHbtcBalance() {
-	const client = useSuiClient();
+	const client = useCurrentClient();
 	const account = useCurrentAccount();
 
 	return useQuery({
@@ -517,7 +517,7 @@ function DepositPanel() {
 				BigInt(Math.round(parseFloat(amount) * 1e8)),
 				account.address,
 			);
-			setResultDigest(result.digest);
+			setResultDigest(result.Transaction!.digest);
 			setStep('status');
 		} catch (e) {
 			setError(e instanceof Error ? e.message : 'Transaction failed');
@@ -693,7 +693,7 @@ function WithdrawPanel() {
 				throw new Error(`Insufficient hBTC. Available: ${balance.formatted}`);
 			}
 			const result = await createWithdrawal(amountSats, btcAddress.trim());
-			setResultDigest(result.digest);
+			setResultDigest(result.Transaction!.digest);
 		} catch (e) {
 			setError(e instanceof Error ? e.message : 'Transaction failed');
 		} finally {

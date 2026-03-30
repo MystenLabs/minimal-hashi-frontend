@@ -8,7 +8,8 @@
     "build": "tsc && vite build"
   },
   "dependencies": {
-    "@mysten/dapp-kit": "^1.0.4",
+    "@mysten/dapp-kit-core": "^1.2.1",
+    "@mysten/dapp-kit-react": "^2.0.1",
     "@mysten/sui": "^2.9.0",
     "@noble/curves": "^2.0.1",
     "@noble/hashes": "^2.0.1",
