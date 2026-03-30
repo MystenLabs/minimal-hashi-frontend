@@ -11,4 +11,13 @@ export default defineConfig({
       '@contracts': path.resolve(__dirname, './contracts/src'),
     },
   },
+  server: {
+    proxy: {
+      '/sui-rpc': {
+        target: 'https://fullnode.devnet.sui.io',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/sui-rpc/, ''),
+      },
+    },
+  },
 });
