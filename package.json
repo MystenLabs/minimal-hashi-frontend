@@ -1,0 +1,29 @@
+{
+  "name": "hashi-integration-guide",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --mode devnet",
+    "build": "tsc && vite build"
+  },
+  "dependencies": {
+    "@mysten/dapp-kit": "^1.0.4",
+    "@mysten/sui": "^2.9.0",
+    "@noble/curves": "^2.0.1",
+    "@noble/hashes": "^2.0.1",
+    "@scure/base": "^2.0.0",
+    "@tanstack/react-query": "^5.71.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react-swc": "^3.0.0",
+    "tailwindcss": "^4.1.0",
+    "typescript": "^5.9.0",
+    "vite": "^6.2.0"
+  }
+}
