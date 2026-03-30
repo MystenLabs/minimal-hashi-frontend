@@ -87,6 +87,10 @@ To target a different network, create a `.env.testnet` or `.env.mainnet` file an
 pnpm vite --mode testnet
 ```
 
+### CORS Proxy
+
+In development, `VITE_SUI_RPC_URL` is set to `/sui-rpc` which is proxied to `https://fullnode.devnet.sui.io` by Vite (see `vite.config.mts`). This avoids CORS issues when calling the Sui RPC from localhost. For production deployments, set `VITE_SUI_RPC_URL` to the actual RPC endpoint URL or configure equivalent rewrites on your hosting platform.
+
 ## Key Dependencies
 
 | Package | Purpose |
