@@ -172,17 +172,17 @@ function useCreateDeposit() {
 
 		// Step 1: Create UtxoId from txid + output index
 		const [utxoIdResult] = tx.add(
-			createUtxoId({ package: pkg, arguments: { txid: reversedTxid, vout } }),
+			createUtxoId({ package: pkg, arguments: [reversedTxid, vout] }),
 		);
 
 		// Step 2: Create Utxo with amount and derivation path (= recipient Sui address)
 		const [utxoResult] = tx.add(
-			createUtxo({ package: pkg, arguments: { utxoId: utxoIdResult, amount: amountSats, derivationPath: recipient } }),
+			createUtxo({ package: pkg, arguments: [utxoIdResult, amountSats, recipient] }),
 		);
 
 		// Step 3: Create DepositRequest (assigns an on-chain ID + timestamp)
 		const [requestResult] = tx.add(
-			createDepositRequest({ package: pkg, arguments: { utxo: utxoResult } }),
+			createDepositRequest({ package: pkg, arguments: [utxoResult] }),
 		);
 
 		// Step 4: Split SUI for the protocol deposit fee (can be 0 on devnet)
@@ -190,7 +190,7 @@ function useCreateDeposit() {
 
 		// Step 5: Submit the deposit to the Hashi contract
 		tx.add(
-			deposit({ package: pkg, arguments: { hashi: CONFIG.HASHI_OBJECT_ID, request: requestResult, fee: feeCoin } }),
+			deposit({ package: pkg, arguments: [CONFIG.HASHI_OBJECT_ID, requestResult, feeCoin] }),
 		);
 
 		return dAppKit.signAndExecuteTransaction({ transaction: tx });
@@ -325,7 +325,7 @@ function useCreateWithdrawal() {
 		tx.add(
 			requestWithdrawal({
 				package: pkg,
-				arguments: { hashi: CONFIG.HASHI_OBJECT_ID, btc: btcCoin, bitcoinAddress: witnessProgram },
+				arguments: [CONFIG.HASHI_OBJECT_ID, btcCoin, witnessProgram],
 			}),
 		);
 
