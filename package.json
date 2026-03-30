@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --mode devnet",
     "build": "tsc && vite build",
-    "codegen": "sui-ts-codegen generate --outputDir contracts/src -m deposit,deposit_queue,utxo,withdraw,withdrawal_queue 0xe87f0c85488c5c442612103a08e5df93d2f190cdb0456b667f5257be506aefc7"
+    "codegen": "cd contracts && sui-ts-codegen generate && cd .. && prettier --write 'contracts/src/**/*.ts'"
   },
   "dependencies": {
     "@mysten/dapp-kit-core": "^1.2.1",
@@ -25,6 +25,7 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react-swc": "^3.0.0",
+    "prettier": "^3.8.1",
     "tailwindcss": "^4.1.0",
     "typescript": "^5.9.0",
     "vite": "^6.2.0"

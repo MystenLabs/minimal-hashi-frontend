@@ -83,7 +83,7 @@ pnpm vite --mode testnet
 
 | Package | Purpose |
 |---------|---------|
-| `@mysten/dapp-kit` | Sui wallet connection + transaction signing |
+| `@mysten/dapp-kit-react` | Sui wallet connection + transaction signing |
 | `@mysten/sui` | Sui client, transaction builder, BCS encoding |
 | `@noble/curves` | secp256k1 operations for key derivation |
 | `@noble/hashes` | SHA-256, SHA3-256, HKDF for address derivation |
@@ -104,11 +104,22 @@ See `src/lib/bitcoin.ts` for the full implementation.
 
 ## Contract Bindings
 
-The `contracts/` directory contains TypeScript bindings generated from the Hashi Move contracts using [`sui-ts-codegen`](https://github.com/MystenLabs/sui-ts-codegen). Only the bindings actually used by this demo are included:
+The `contracts/` directory contains TypeScript bindings generated from the on-chain Hashi Move package using [`@mysten/codegen`](https://www.npmjs.com/package/@mysten/codegen). The generated files are committed so the repo works out of the box.
+
+To regenerate after a contract upgrade:
+
+```bash
+# Requires the sui CLI — install from https://docs.sui.io/guides/developer/getting-started/sui-install
+# Point the sui CLI at the correct network first:
+sui client new-env --alias devnet --rpc https://fullnode.devnet.sui.io:443  # only needed once
+sui client switch --env devnet
+
+pnpm codegen
+```
+
+The codegen config is in `contracts/sui-codegen.config.ts`. Only the modules used by this demo are generated:
 
 - `deposit.ts` — `deposit(hashi, request, fee)`
 - `deposit_queue.ts` — `depositRequest(utxo)`
 - `utxo.ts` — `utxoId(txid, vout)`, `utxo(utxoId, amount, derivationPath)`
 - `withdraw.ts` — `requestWithdrawal(hashi, btc, bitcoinAddress)`
-
-To regenerate bindings from the full Hashi package, see the [hashi repository](https://github.com/MystenLabs/hashi).
