@@ -595,7 +595,7 @@ function BalanceDisplay() {
 function DepositAddressDisplay() {
 	const account = useCurrentAccount();
 	const { data: addressData, isLoading } = useDepositAddress(account?.address);
-	const mempoolBase = CONFIG.DEFAULT_NETWORK === 'mainnet' ? 'https://mempool.space' : 'https://mempool.space/testnet4';
+	const mempoolBase = CONFIG.DEFAULT_NETWORK === 'mainnet' ? 'https://mempool.space' : 'https://mempool.space/signet';
 
 	if (isLoading) return <p className="mb-6 text-gray-500">Deriving deposit address...</p>;
 	if (!addressData) return null;

@@ -1,11 +1,15 @@
 import type { SuiCodegenConfig } from "@mysten/codegen";
+import dotenv from "dotenv";
+
+dotenv.config({ path: "../.env.devnet" });
+const packageId = process.env.VITE_HASHI_PACKAGE_ID;
+if (!packageId) throw new Error("VITE_HASHI_PACKAGE_ID not set in .env.devnet");
 
 const config: SuiCodegenConfig = {
   output: "./src",
   packages: [
     {
-      package:
-        "0xe87f0c85488c5c442612103a08e5df93d2f190cdb0456b667f5257be506aefc7",
+      package: packageId,
       packageName: "hashi",
       network: "testnet",
       generate: {
