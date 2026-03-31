@@ -13,12 +13,21 @@ Minimal reference implementation of the Hashi BTC bridge frontend for Sui. This 
 
 ## Architecture
 
-Single-page React app. All Hashi integration logic lives in `src/App.tsx`, organized into labeled sections (deposit address derivation, BTC tx lookup, deposit fee + create deposit, poll deposit, create withdrawal, poll withdrawal, balance, UI).
+Single-page React app split into hooks, components, and shared utilities.
 
+- `src/App.tsx` — App shell: wallet connect, balance display, tab switcher, footer.
+- `src/hooks/useDeposit.ts` — Deposit hooks: address derivation, BTC tx lookup, fee reading, deposit creation, status polling.
+- `src/hooks/useWithdrawal.ts` — Withdrawal hooks: withdrawal creation and status polling.
+- `src/hooks/useHbtcBalance.ts` — hBTC balance query.
+- `src/components/DepositPanel.tsx` — Deposit flow UI (3-step wizard) and deposit address display.
+- `src/components/WithdrawPanel.tsx` — Withdrawal form and status display with pipeline visualization.
+- `src/components/LookupPanel.tsx` — Transaction lookup by Sui digest.
+- `src/components/ExplorerLink.tsx` — Clickable + copiable link to Suiscan / mempool.space.
+- `src/components/StatusBadge.tsx` — Colored status badge.
+- `src/lib/constants.ts` — Env vars, explorer URL helpers, network mapping, Move field navigation helper, polling intervals.
+- `src/lib/bitcoin.ts` — Bitcoin address derivation crypto. Do not simplify — the math is load-bearing.
 - `src/dapp-kit.ts` — dApp Kit 2.0 configuration. Creates a typed `dAppKit` instance with `SuiJsonRpcClient`.
 - `src/main.tsx` — Entry point with `DAppKitProvider` and `QueryClientProvider`.
-- `src/lib/bitcoin.ts` — Bitcoin address derivation crypto. Do not simplify — the math is load-bearing.
-- `src/lib/constants.ts` — Reads config from Vite env vars (including `BTC_RPC_URL`).
 - `contracts/src/` — Generated Move contract bindings via `@mysten/codegen`. Gitignored — run `pnpm codegen` to generate. Do not hand-edit.
 - `contracts/sui-codegen.config.ts` — Codegen config pointing at the on-chain devnet package.
 
@@ -42,6 +51,6 @@ Single-page React app. All Hashi integration logic lives in `src/App.tsx`, organ
 ## Style
 
 - This is a reference/guide codebase. Prioritize readability and clear comments over DRY code.
-- Keep everything in as few files as possible. Do not split App.tsx into separate component files.
-- Section headers in App.tsx use `// ===` comment blocks — maintain this structure.
+- Hooks live in `src/hooks/`, UI components in `src/components/`, shared utilities in `src/lib/`.
+- Section headers in hook files use `// ===` comment blocks — maintain this structure.
 - JSDoc comments on hooks explain the "why" and the on-chain mechanics, not just the "what".
