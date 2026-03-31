@@ -21,35 +21,6 @@ A simplified, single-page reference implementation of the [Hashi](https://github
 
 Paste any Sui transaction digest to check the on-chain status of a deposit or withdrawal.
 
-## Project Structure
-
-```
-src/
-├── App.tsx              # All integration logic + UI in one annotated file
-├── main.tsx             # dApp Kit provider + React Query setup
-├── dapp-kit.ts          # dApp Kit 2.0 configuration (client, networks)
-└── lib/
-    ├── constants.ts     # Package/object IDs from env vars
-    └── bitcoin.ts       # P2TR address derivation (HKDF + taproot)
-
-contracts/
-├── sui-codegen.config.ts  # Codegen config (on-chain package ID, modules)
-└── src/                   # Generated bindings (gitignored, run pnpm codegen)
-```
-
-The entire integration is in `src/App.tsx`, organized into labeled sections:
-
-| Section | Hook | Purpose |
-|---------|------|---------|
-| 1 | `useDepositAddress()` | Derive unique BTC deposit address from Sui wallet |
-| 1b | `useBtcTransaction()` | Look up Bitcoin tx via JSON-RPC, auto-detect vout + amount |
-| 2 | `useDepositFee()` / `useCreateDeposit()` | Read on-chain fee, build + sign deposit transaction |
-| 3 | `useDepositStatus()` | Poll on-chain events for deposit confirmation |
-| 4 | `useCreateWithdrawal()` | Build + sign the withdrawal request transaction |
-| 5 | `useWithdrawalStatus()` | Poll withdrawal queue + events for status |
-| 6 | `useHbtcBalance()` | Query hBTC token balance |
-| 7 | UI Components | Minimal forms wiring it all together |
-
 ## Quick Start
 
 Requires the [Sui CLI](https://docs.sui.io/guides/developer/getting-started/sui-install) for generating contract bindings.
