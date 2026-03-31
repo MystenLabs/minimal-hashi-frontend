@@ -675,7 +675,7 @@ function DepositPanel() {
 					<p className="text-sm text-gray-400">
 						The address above is uniquely derived from your Sui wallet and the Hashi MPC committee key.
 						Send BTC to it to begin a deposit.
-						Need testnet BTC? <a href="https://coinfaucet.eu/en/btc-testnet4/" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">Get some from the faucet</a>.
+						Need testnet BTC? <a href="https://signetfaucet.com/" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">Get some from the faucet</a>.
 					</p>
 
 					<button
