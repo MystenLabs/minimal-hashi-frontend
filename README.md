@@ -30,24 +30,6 @@ Target a different network:
 pnpm vite --mode testnet
 ```
 
-## Project structure
-
-```
-src/
-  App.tsx                    # Shell: wallet connect, balance, tabs
-  main.tsx                   # Providers (dApp Kit, React Query)
-  dapp-kit.ts                # dApp Kit config
-  lib/
-    hashi.ts                 # HashiClient singleton
-    constants.ts             # Env vars, URLs, polling intervals
-  components/
-    DepositPanel.tsx          # Deposit flow
-    WithdrawPanel.tsx         # Withdrawal flow
-    LookupPanel.tsx           # Transaction lookup
-    ExplorerLink.tsx          # Explorer links with copy
-    StatusBadge.tsx           # Status indicator
-```
-
 ## Dependencies
 
 | Package | Purpose |
