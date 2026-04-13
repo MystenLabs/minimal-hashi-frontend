@@ -1,10 +1,6 @@
 import { useState, useCallback } from 'react';
-import { mempoolBaseUrl, suiscanBaseUrl } from '../lib/constants';
+import { MEMPOOL_BASE_URL, SUISCAN_BASE_URL } from '../lib/constants';
 
-/**
- * Renders a truncated value that links to an explorer and can be copied with one click.
- * Used for Sui digests, object IDs, BTC txids, and Bitcoin addresses.
- */
 export function ExplorerLink({ value, type, truncate = true }: {
 	value: string;
 	type: 'sui-tx' | 'sui-object' | 'btc-tx' | 'btc-address';
@@ -13,10 +9,10 @@ export function ExplorerLink({ value, type, truncate = true }: {
 	const [copied, setCopied] = useState(false);
 
 	const href = {
-		'sui-tx': `${suiscanBaseUrl()}/tx/${value}`,
-		'sui-object': `${suiscanBaseUrl()}/object/${value}`,
-		'btc-tx': `${mempoolBaseUrl()}/tx/${value}`,
-		'btc-address': `${mempoolBaseUrl()}/address/${value}`,
+		'sui-tx': `${SUISCAN_BASE_URL}/tx/${value}`,
+		'sui-object': `${SUISCAN_BASE_URL}/object/${value}`,
+		'btc-tx': `${MEMPOOL_BASE_URL}/tx/${value}`,
+		'btc-address': `${MEMPOOL_BASE_URL}/address/${value}`,
 	}[type];
 
 	const display = truncate ? `${value.slice(0, 16)}...` : value;

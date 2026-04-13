@@ -1,7 +1,8 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
-import { useDepositStatus } from '../hooks/useDeposit';
-import { useWithdrawalStatus } from '../hooks/useWithdrawal';
+import { CONFIG, POLL_DEPOSIT_STATUS, POLL_WITHDRAWAL_STATUS } from '../lib/constants';
+import { hashi } from '../lib/hashi';
 import { ExplorerLink } from './ExplorerLink';
 import { StatusBadge } from './StatusBadge';
 
@@ -10,12 +11,27 @@ export function LookupPanel() {
 	const [lookupDigest, setLookupDigest] = useState('');
 	const [txType, setTxType] = useState<'deposit' | 'withdrawal'>('deposit');
 
-	const { data: depositStatus, isLoading: depositLoading } = useDepositStatus(
-		txType === 'deposit' ? lookupDigest || undefined : undefined,
-	);
-	const { data: withdrawalStatus, isLoading: withdrawalLoading } = useWithdrawalStatus(
-		txType === 'withdrawal' ? lookupDigest || undefined : undefined,
-	);
+	const { data: depositStatus, isLoading: depositLoading } = useQuery({
+		queryKey: ['deposit-status', lookupDigest],
+		queryFn: () => hashi.getDepositStatus(lookupDigest),
+		enabled: txType === 'deposit' && !!lookupDigest && !!CONFIG.HASHI_PACKAGE_ID,
+		refetchInterval: (query) => {
+			const s = query.state.data?.status;
+			if (s === 'confirmed' || s === 'expired') return false;
+			return POLL_DEPOSIT_STATUS;
+		},
+	});
+
+	const { data: withdrawalStatus, isLoading: withdrawalLoading } = useQuery({
+		queryKey: ['withdrawal-status', lookupDigest],
+		queryFn: () => hashi.getWithdrawalStatus(lookupDigest),
+		enabled: txType === 'withdrawal' && !!lookupDigest && !!CONFIG.HASHI_PACKAGE_ID,
+		refetchInterval: (query) => {
+			const s = query.state.data?.status;
+			if (s === 'confirmed' || s === 'cancelled') return false;
+			return POLL_WITHDRAWAL_STATUS;
+		},
+	});
 
 	const isLoading = depositLoading || withdrawalLoading;
 	const status = txType === 'deposit' ? depositStatus : withdrawalStatus;

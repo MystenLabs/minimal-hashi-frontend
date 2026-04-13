@@ -1,29 +1,15 @@
-/**
- * dApp Kit 2.0 configuration.
- *
- * Creates a typed dAppKit instance that all hooks automatically pick up
- * via the module-level Register interface.
- */
-
 import { createDAppKit } from '@mysten/dapp-kit-react';
-import { SuiJsonRpcClient } from '@mysten/sui/jsonRpc';
-import { CONFIG } from './lib/constants';
-
-const RPC_URLS: Record<string, string> = {
-	devnet: CONFIG.SUI_RPC_URL || 'https://fullnode.devnet.sui.io:443',
-	testnet: 'https://fullnode.testnet.sui.io:443',
-	mainnet: 'https://fullnode.mainnet.sui.io:443',
-};
-
-const networkList = [CONFIG.DEFAULT_NETWORK, 'devnet', 'testnet', 'mainnet'].filter(
-	(v, i, a) => a.indexOf(v) === i,
-) as [string, ...string[]];
+import { SuiGrpcClient } from '@mysten/sui/grpc';
+import { CONFIG, FULLNODE_URLS } from './lib/constants';
 
 export const dAppKit = createDAppKit({
-	networks: networkList,
+	networks: ['devnet', 'testnet', 'mainnet'] as [string, ...string[]],
 	defaultNetwork: CONFIG.DEFAULT_NETWORK,
 	createClient(network) {
-		return new SuiJsonRpcClient({ network, url: RPC_URLS[network] ?? RPC_URLS.devnet });
+		return new SuiGrpcClient({
+			network,
+			baseUrl: FULLNODE_URLS[network] ?? FULLNODE_URLS.devnet,
+		});
 	},
 });
 

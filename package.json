@@ -6,21 +6,18 @@
   "scripts": {
     "dev": "vite --mode devnet",
     "build": "tsc && vite build",
-    "codegen": "cd contracts && sui-ts-codegen generate && cd .. && prettier --write 'contracts/src/**/*.ts'"
+    "codegen": "echo 'Codegen no longer needed — using hashi-sdk'"
   },
   "dependencies": {
     "@mysten/dapp-kit-core": "^1.2.1",
     "@mysten/dapp-kit-react": "^2.0.1",
-    "@mysten/sui": "^2.9.0",
-    "@noble/curves": "^2.0.1",
-    "@noble/hashes": "^2.0.1",
-    "@scure/base": "^2.0.0",
+    "@mysten/sui": "^2.13.3",
     "@tanstack/react-query": "^5.71.3",
+    "hashi-sdk": "file:../hashi-sdk",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
-    "@mysten/codegen": "^0.8.3",
     "@tailwindcss/vite": "^4.1.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",

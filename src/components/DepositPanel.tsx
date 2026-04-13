@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { useCurrentAccount } from '@mysten/dapp-kit-react';
+import { useCurrentAccount, useDAppKit } from '@mysten/dapp-kit-react';
+import { useQuery } from '@tanstack/react-query';
 
-import { mempoolBaseUrl } from '../lib/constants';
-import { useDepositAddress, useBtcTransaction, useCreateDeposit, useDepositStatus } from '../hooks/useDeposit';
+import { CONFIG, MEMPOOL_BASE_URL, POLL_DEPOSIT_STATUS, formatBtc } from '../lib/constants';
+import { hashi } from '../lib/hashi';
 import { ExplorerLink } from './ExplorerLink';
 import { StatusBadge } from './StatusBadge';
 
@@ -12,7 +13,13 @@ import { StatusBadge } from './StatusBadge';
 
 export function DepositAddressDisplay() {
 	const account = useCurrentAccount();
-	const { data: addressData, isLoading } = useDepositAddress(account?.address);
+
+	const { data: addressData, isLoading } = useQuery({
+		queryKey: ['deposit-address', account?.address],
+		queryFn: () => hashi.generateDepositAddress(account!.address),
+		enabled: !!account?.address && !!CONFIG.HASHI_OBJECT_ID,
+		staleTime: 5 * 60 * 1000,
+	});
 
 	if (isLoading) return <p className="mb-6 text-gray-500">Deriving deposit address...</p>;
 	if (!addressData) return null;
@@ -29,7 +36,7 @@ export function DepositAddressDisplay() {
 					Copy to clipboard
 				</button>
 				<a
-					href={`${mempoolBaseUrl()}/address/${addressData.address}`}
+					href={`${MEMPOOL_BASE_URL}/address/${addressData.address}`}
 					target="_blank"
 					rel="noopener noreferrer"
 					className="text-xs text-blue-400 hover:text-blue-300"
@@ -47,8 +54,14 @@ export function DepositAddressDisplay() {
 
 export function DepositPanel() {
 	const account = useCurrentAccount();
-	const { data: addressData } = useDepositAddress(account?.address);
-	const createDeposit = useCreateDeposit();
+	const dAppKit = useDAppKit();
+
+	const { data: addressData } = useQuery({
+		queryKey: ['deposit-address', account?.address],
+		queryFn: () => hashi.generateDepositAddress(account!.address),
+		enabled: !!account?.address && !!CONFIG.HASHI_OBJECT_ID,
+		staleTime: 5 * 60 * 1000,
+	});
 
 	const [step, setStep] = useState<'address' | 'submit' | 'status'>('address');
 	const [txid, setTxid] = useState('');
@@ -56,24 +69,45 @@ export function DepositPanel() {
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState('');
 
-	const { data: btcTx, error: btcTxError, isLoading: btcTxLoading } = useBtcTransaction(
-		txid.trim().length === 64 ? txid.trim() : undefined,
-		addressData?.address,
-	);
+	const trimmedTxid = txid.trim();
 
-	const { data: status } = useDepositStatus(resultDigest || undefined);
+	const { data: btcTx, error: btcTxError, isLoading: btcTxLoading } = useQuery({
+		queryKey: ['btc-tx', trimmedTxid],
+		queryFn: async () => {
+			const result = await hashi.lookupBitcoinVout(trimmedTxid, addressData!.address);
+			if (!result) throw new Error(`No output found matching your deposit address ${addressData!.address}`);
+			return {
+				vout: result.vout,
+				amountSats: result.amountSats,
+				amountBtc: formatBtc(result.amountSats),
+			};
+		},
+		enabled: trimmedTxid.length === 64 && !!addressData?.address && !!CONFIG.BTC_RPC_URL,
+		retry: false,
+	});
+
+	const { data: status } = useQuery({
+		queryKey: ['deposit-status', resultDigest],
+		queryFn: () => hashi.getDepositStatus(resultDigest),
+		enabled: !!resultDigest && !!CONFIG.HASHI_PACKAGE_ID,
+		refetchInterval: (query) => {
+			const s = query.state.data?.status;
+			if (s === 'confirmed' || s === 'expired') return false;
+			return POLL_DEPOSIT_STATUS;
+		},
+	});
 
 	const handleSubmit = async () => {
 		if (!account || !btcTx) return;
 		setError('');
 		setSubmitting(true);
 		try {
-			const result = await createDeposit(
-				txid.trim(),
-				btcTx.vout,
-				btcTx.amountSats,
-				account.address,
-			);
+			const { transaction } = hashi.buildDepositTransaction({
+				txid: trimmedTxid,
+				utxos: [{ vout: btcTx.vout, amountSats: btcTx.amountSats }],
+				recipient: account.address,
+			});
+			const result = await dAppKit.signAndExecuteTransaction({ transaction });
 			setResultDigest(result.Transaction!.digest);
 			setStep('status');
 		} catch (e) {

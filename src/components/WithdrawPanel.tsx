@@ -1,15 +1,27 @@
 import { useState } from 'react';
+import { useCurrentAccount, useDAppKit } from '@mysten/dapp-kit-react';
+import { useQuery } from '@tanstack/react-query';
 
-import { useHbtcBalance } from '../hooks/useHbtcBalance';
-import { useCreateWithdrawal, useWithdrawalStatus } from '../hooks/useWithdrawal';
+import { CONFIG, POLL_BALANCE, POLL_WITHDRAWAL_STATUS, formatBtc } from '../lib/constants';
+import { hashi } from '../lib/hashi';
 import { ExplorerLink } from './ExplorerLink';
 import { StatusBadge } from './StatusBadge';
 
 const WITHDRAWAL_STEPS = ['requested', 'approved', 'processing', 'confirmed'] as const;
 
 export function WithdrawPanel() {
-	const createWithdrawal = useCreateWithdrawal();
-	const { data: balance } = useHbtcBalance();
+	const account = useCurrentAccount();
+	const dAppKit = useDAppKit();
+
+	const { data: balance } = useQuery({
+		queryKey: ['hbtc-balance', account?.address],
+		queryFn: async () => {
+			const b = await hashi.getBalance(account!.address);
+			return { totalBalance: b.totalBalance, formatted: formatBtc(b.totalBalance) };
+		},
+		enabled: !!account,
+		refetchInterval: POLL_BALANCE,
+	});
 
 	const [btcAddress, setBtcAddress] = useState('');
 	const [amount, setAmount] = useState('');
@@ -17,7 +29,16 @@ export function WithdrawPanel() {
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState('');
 
-	const { data: status } = useWithdrawalStatus(resultDigest || undefined);
+	const { data: status } = useQuery({
+		queryKey: ['withdrawal-status', resultDigest],
+		queryFn: () => hashi.getWithdrawalStatus(resultDigest),
+		enabled: !!resultDigest && !!CONFIG.HASHI_PACKAGE_ID,
+		refetchInterval: (query) => {
+			const s = query.state.data?.status;
+			if (s === 'confirmed' || s === 'cancelled') return false;
+			return POLL_WITHDRAWAL_STATUS;
+		},
+	});
 
 	const handleSubmit = async () => {
 		setError('');
@@ -27,7 +48,11 @@ export function WithdrawPanel() {
 			if (balance && amountSats > balance.totalBalance) {
 				throw new Error(`Insufficient hBTC. Available: ${balance.formatted}`);
 			}
-			const result = await createWithdrawal(amountSats, btcAddress.trim());
+			const { transaction } = hashi.buildWithdrawalTransaction({
+				amountSats,
+				bitcoinAddress: btcAddress.trim(),
+			});
+			const result = await dAppKit.signAndExecuteTransaction({ transaction });
 			setResultDigest(result.Transaction!.digest);
 		} catch (e) {
 			setError(e instanceof Error ? e.message : 'Transaction failed');

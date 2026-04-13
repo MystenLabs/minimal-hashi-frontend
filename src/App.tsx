@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useCurrentAccount } from '@mysten/dapp-kit-react';
 import { ConnectButton } from '@mysten/dapp-kit-react/ui';
+import { useQuery } from '@tanstack/react-query';
 
-import { CONFIG, suiscanBaseUrl } from './lib/constants';
-import { useHbtcBalance } from './hooks/useHbtcBalance';
+import { CONFIG, SUISCAN_BASE_URL, POLL_BALANCE, formatBtc } from './lib/constants';
+import { hashi } from './lib/hashi';
 import { DepositAddressDisplay, DepositPanel } from './components/DepositPanel';
 import { WithdrawPanel } from './components/WithdrawPanel';
 import { LookupPanel } from './components/LookupPanel';
@@ -60,15 +61,26 @@ export default function App() {
 
 			<div className="mt-12 text-xs text-gray-600 border-t border-gray-800 pt-6 space-y-1">
 				<p>Network: {CONFIG.DEFAULT_NETWORK}</p>
-				<p>Package: <a href={`${suiscanBaseUrl()}/object/${CONFIG.HASHI_PACKAGE_ID}`} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 break-all">{CONFIG.HASHI_PACKAGE_ID}</a></p>
-				<p>Hashi Object: <a href={`${suiscanBaseUrl()}/object/${CONFIG.HASHI_OBJECT_ID}`} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 break-all">{CONFIG.HASHI_OBJECT_ID}</a></p>
+				<p>Package: <a href={`${SUISCAN_BASE_URL}/object/${CONFIG.HASHI_PACKAGE_ID}`} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 break-all">{CONFIG.HASHI_PACKAGE_ID}</a></p>
+				<p>Hashi Object: <a href={`${SUISCAN_BASE_URL}/object/${CONFIG.HASHI_OBJECT_ID}`} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 break-all">{CONFIG.HASHI_OBJECT_ID}</a></p>
 			</div>
 		</div>
 	);
 }
 
 function BalanceDisplay() {
-	const { data: balance } = useHbtcBalance();
+	const account = useCurrentAccount();
+
+	const { data: balance } = useQuery({
+		queryKey: ['hbtc-balance', account?.address],
+		queryFn: async () => {
+			const b = await hashi.getBalance(account!.address);
+			return { totalBalance: b.totalBalance, formatted: formatBtc(b.totalBalance) };
+		},
+		enabled: !!account,
+		refetchInterval: POLL_BALANCE,
+	});
+
 	if (!balance) return null;
 	return (
 		<div className="mb-6 p-4 bg-gray-900 rounded-lg">

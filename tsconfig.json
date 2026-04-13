@@ -14,9 +14,8 @@
     "strict": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "@contracts/*": ["./contracts/src/*"]
+      "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "contracts/src"]
+  "include": ["src"]
 }

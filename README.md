@@ -1,94 +1,58 @@
 # Minimal Hashi Frontend
 
-A simplified, single-page reference implementation of the [Hashi](https://github.com/MystenLabs/hashi) BTC bridge for Sui. Built as a companion to the Hashi integration guide — strips away all UI polish to focus on the core bridge mechanics.
+Reference frontend for the [Hashi](https://github.com/MystenLabs/hashi) BTC bridge on Sui, built with [`hashi-sdk`](../hashi-sdk). Demonstrates deposits (BTC to hBTC), withdrawals (hBTC to BTC), balance display, and status polling.
 
-## What This Demonstrates
+This is a working example, not a production app. See [**INTEGRATION.md**](INTEGRATION.md) for a walkthrough of how each piece works.
 
-### Deposit Flow (BTC → hBTC on Sui)
-
-1. **Derive deposit address** — Each Sui wallet gets a unique Bitcoin P2TR (taproot) address, derived from the MPC committee's public key + the user's Sui address using HKDF-SHA3-256.
-2. **Send BTC** — User sends Bitcoin to their derived address (outside this app).
-3. **Submit deposit request** — User enters the Bitcoin txid. The output index and amount are auto-detected via Bitcoin JSON-RPC. The app builds a Sui transaction that creates a `DepositRequest` on-chain.
-4. **Poll for confirmation** — The app queries `DepositConfirmedEvent` every 15s until the deposit is confirmed (6 BTC confirmations + committee verification) or expired.
-
-### Withdrawal Flow (hBTC → BTC)
-
-1. **Enter destination** — User provides a Bitcoin address (P2WPKH or P2TR) and hBTC amount.
-2. **Submit withdrawal** — The app burns hBTC via `requestWithdrawal()`, which queues the withdrawal on-chain.
-3. **Poll for completion** — Tracks the multi-step process: `requested → approved → processing → signed → confirmed`.
-
-### Transaction Lookup
-
-Paste any Sui transaction digest to check the on-chain status of a deposit or withdrawal.
-
-## Quick Start
-
-Requires the [Sui CLI](https://docs.sui.io/guides/developer/getting-started/sui-install) for generating contract bindings.
+## Quick start
 
 ```bash
-# Point sui CLI at devnet (only needed once)
-sui client new-env --alias devnet --rpc https://fullnode.devnet.sui.io:443
-sui client switch --env devnet
-
 pnpm install
-pnpm codegen   # generate TypeScript contract bindings from on-chain package
 pnpm dev
 ```
 
-This starts the app on devnet by default. Open the URL shown in terminal and connect a Sui wallet.
+Open the URL and connect a Sui wallet.
 
 ## Configuration
 
-Environment variables (see `.env.devnet`):
+Environment variables in [`.env.devnet`](.env.devnet):
 
 | Variable | Description |
 |----------|-------------|
-| `VITE_DEFAULT_NETWORK` | Sui network: `devnet`, `testnet`, or `mainnet` |
-| `VITE_SUI_RPC_URL` | Sui RPC endpoint URL |
-| `VITE_HASHI_PACKAGE_ID` | Deployed Hashi Move package ID |
+| `VITE_DEFAULT_NETWORK` | `devnet`, `testnet`, or `mainnet` |
+| `VITE_HASHI_PACKAGE_ID` | Hashi Move package ID |
 | `VITE_HASHI_OBJECT_ID` | Hashi shared object ID |
-| `VITE_BTC_RPC_URL` | Bitcoin JSON-RPC endpoint (for tx lookup) |
+| `VITE_BTC_RPC_URL` | Bitcoin JSON-RPC endpoint (for UTXO auto-detection) |
 
-To target a different network, create a `.env.testnet` or `.env.mainnet` file and run:
+Target a different network:
 
 ```bash
 pnpm vite --mode testnet
 ```
 
-### CORS Proxy
+## Project structure
 
-In development, `VITE_SUI_RPC_URL` is set to `/sui-rpc` which is proxied to `https://fullnode.devnet.sui.io` by Vite (see `vite.config.mts`). This avoids CORS issues when calling the Sui RPC from localhost. For production deployments, set `VITE_SUI_RPC_URL` to the actual RPC endpoint URL or configure equivalent rewrites on your hosting platform.
+```
+src/
+  App.tsx                    # Shell: wallet connect, balance, tabs
+  main.tsx                   # Providers (dApp Kit, React Query)
+  dapp-kit.ts                # dApp Kit config
+  lib/
+    hashi.ts                 # HashiClient singleton
+    constants.ts             # Env vars, URLs, polling intervals
+  components/
+    DepositPanel.tsx          # Deposit flow
+    WithdrawPanel.tsx         # Withdrawal flow
+    LookupPanel.tsx           # Transaction lookup
+    ExplorerLink.tsx          # Explorer links with copy
+    StatusBadge.tsx           # Status indicator
+```
 
-## Key Dependencies
+## Dependencies
 
 | Package | Purpose |
 |---------|---------|
-| `@mysten/dapp-kit-react` | Sui wallet connection + transaction signing |
-| `@mysten/sui` | Sui client, transaction builder, BCS encoding |
-| `@noble/curves` | secp256k1 operations for key derivation |
-| `@noble/hashes` | SHA-256, SHA3-256, HKDF for address derivation |
-| `@scure/base` | bech32/bech32m encoding for Bitcoin addresses |
-| `@tanstack/react-query` | Async data fetching + polling |
-
-## How Address Derivation Works
-
-The most Hashi-specific piece is how each Sui wallet gets a unique Bitcoin deposit address:
-
-1. Fetch the MPC committee's public key from the on-chain Hashi object
-2. Convert from ark-works compressed format to standard Bitcoin format (02/03 prefix)
-3. Compute `tweak = HKDF-SHA3-256(ikm = mpcKey.x || suiAddress)`
-4. Derive `newPoint = mpcKey + tweak * G` (secp256k1 point addition)
-5. Build a P2TR script-path address using a NUMS internal key + `<derivedKey> OP_CHECKSIG` leaf
-
-See `src/lib/bitcoin.ts` for the full implementation.
-
-## Contract Bindings
-
-The `contracts/src/` directory contains TypeScript bindings generated from the on-chain Hashi Move package using [`@mysten/codegen`](https://www.npmjs.com/package/@mysten/codegen). These files are gitignored and must be generated locally via `pnpm codegen` (requires the `sui` CLI pointed at devnet).
-
-The codegen config is in `contracts/sui-codegen.config.ts`. Only the modules used by this demo are generated:
-
-- `deposit.ts` — `deposit(hashi, request, fee)`
-- `deposit_queue.ts` — `depositRequest(utxo)`
-- `utxo.ts` — `utxoId(txid, vout)`, `utxo(utxoId, amount, derivationPath)`
-- `withdraw.ts` — `requestWithdrawal(hashi, btc, bitcoinAddress)`
+| [`hashi-sdk`](../hashi-sdk) | All Hashi protocol operations |
+| `@mysten/dapp-kit-react` | Wallet connection + transaction signing |
+| `@mysten/sui` | Sui client |
+| `@tanstack/react-query` | Data fetching + polling |
