@@ -38,7 +38,7 @@ export async function getDepositStatusesByDigest(txDigest: string): Promise<Depo
 async function buildDepositInfo(
 	parsed: DepositEventJson,
 	txDigest: string,
-	requestsBagId: string | null,
+	requestsBagId: string | undefined,
 ): Promise<DepositInfo> {
 	let status: DepositStatus = 'unknown';
 
@@ -52,7 +52,9 @@ async function buildDepositInfo(
 			throw new Error('Deposit request not found');
 		}
 
-		if (requestsBagId) {
+		if (requestsBagId === undefined) {
+			status = 'unknown';
+		} else if (requestsBagId) {
 			const reqResult = await hashi.client
 				.getDynamicField({
 					parentId: requestsBagId,
@@ -83,7 +85,7 @@ async function buildDepositInfo(
 	};
 }
 
-async function fetchDepositRequestsBagId(): Promise<string | null> {
+async function fetchDepositRequestsBagId(): Promise<string | undefined> {
 	try {
 		const result = await hashi.client.getDynamicField({
 			parentId: hashi.objectId,
@@ -93,14 +95,14 @@ async function fetchDepositRequestsBagId(): Promise<string | null> {
 			},
 		});
 
-		if (!result.dynamicField?.fieldId) return null;
+		if (!result.dynamicField?.fieldId) return undefined;
 
 		const { object } = await hashi.client.getObject({
 			objectId: result.dynamicField.fieldId,
 			include: { json: true },
 		});
 
-		if (!object?.json) return null;
+		if (!object?.json) return undefined;
 
 		const json = object.json as Record<string, unknown>;
 		const bitcoinState = (json.value ?? json) as Record<string, unknown>;
@@ -108,9 +110,9 @@ async function fetchDepositRequestsBagId(): Promise<string | null> {
 			((bitcoinState.deposit_queue as Record<string, unknown> | undefined)?.fields as Record<string, unknown>) ??
 			(bitcoinState.deposit_queue as Record<string, unknown> | undefined);
 
-		return getFieldId(depositQueue, 'requests');
+		return getFieldId(depositQueue, 'requests') ?? undefined;
 	} catch {
-		return null;
+		return undefined;
 	}
 }
 

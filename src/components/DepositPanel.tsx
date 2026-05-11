@@ -3,6 +3,7 @@ import { useCurrentAccount, useDAppKit } from '@mysten/dapp-kit-react';
 import { useQuery } from '@tanstack/react-query';
 
 import { CONFIG, MEMPOOL_BASE_URL, POLL_DEPOSIT_STATUS, formatBtc } from '../lib/constants';
+import { getDepositStatusesByDigest } from '../lib/deposit-statuses';
 import { hashi } from '../lib/hashi';
 import { ExplorerLink } from './ExplorerLink';
 import { StatusBadge } from './StatusBadge';
@@ -72,7 +73,7 @@ export function DepositPanel() {
 	const trimmedTxid = txid.trim();
 
 	const { data: btcTx, error: btcTxError, isLoading: btcTxLoading } = useQuery({
-		queryKey: ['btc-tx', trimmedTxid],
+		queryKey: ['btc-tx', account?.address, addressData?.address, trimmedTxid],
 		queryFn: async () => {
 			const utxos = await hashi.lookupAllBitcoinVouts(trimmedTxid, addressData!.address);
 			if (utxos.length === 0) {
@@ -102,17 +103,12 @@ export function DepositPanel() {
 	});
 
 	const { data: submittedDeposits } = useQuery({
-		queryKey: ['submitted-deposits', account?.address, resultDigest],
-		queryFn: async () => {
-			const history = await hashi.getTransactionHistory(account!.address);
-			return history.filter(
-				(item) => item.direction === 'btc-to-sui' && item.suiTxDigest === resultDigest,
-			);
-		},
-		enabled: !!account?.address && !!resultDigest && !!CONFIG.HASHI_PACKAGE_ID,
+		queryKey: ['submitted-deposits', resultDigest],
+		queryFn: () => getDepositStatusesByDigest(resultDigest),
+		enabled: !!resultDigest && !!CONFIG.HASHI_PACKAGE_ID,
 		refetchInterval: (query) => {
 			const deposits = query.state.data ?? [];
-			if (deposits.length > 0 && deposits.every((deposit) => deposit.status === 'confirmed')) {
+			if (deposits.length > 0 && deposits.every((deposit) => deposit.status === 'confirmed' || deposit.status === 'expired')) {
 				return false;
 			}
 			return POLL_DEPOSIT_STATUS;
@@ -268,7 +264,7 @@ export function DepositPanel() {
 											</div>
 										</div>
 									))}
-									{submittedDeposits.some((deposit) => deposit.status === 'pending') && (
+									{submittedDeposits.some((deposit) => deposit.status === 'pending' || deposit.status === 'unknown') && (
 										<p className="text-xs text-gray-500 mt-2">
 											Waiting for 6 Bitcoin confirmations + committee verification. Polling every 15s...
 										</p>

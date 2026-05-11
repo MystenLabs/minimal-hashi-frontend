@@ -112,7 +112,7 @@ export function WithdrawPanel() {
 						})}
 					</div>
 
-					{status.status !== 'confirmed' && (
+					{status.status !== 'confirmed' && status.status !== 'cancelled' && (
 						<p className="text-xs text-gray-500 mt-2">Polling every 15s...</p>
 					)}
 				</div>
