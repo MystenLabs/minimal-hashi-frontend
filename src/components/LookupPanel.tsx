@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { CONFIG, POLL_DEPOSIT_STATUS, POLL_WITHDRAWAL_STATUS } from '../lib/constants';
+import { getDepositStatusesByDigest } from '../lib/deposit-statuses';
 import { hashi } from '../lib/hashi';
 import { ExplorerLink } from './ExplorerLink';
 import { StatusBadge } from './StatusBadge';
@@ -11,13 +12,15 @@ export function LookupPanel() {
 	const [lookupDigest, setLookupDigest] = useState('');
 	const [txType, setTxType] = useState<'deposit' | 'withdrawal'>('deposit');
 
-	const { data: depositStatus, isLoading: depositLoading } = useQuery({
-		queryKey: ['deposit-status', lookupDigest],
-		queryFn: () => hashi.getDepositStatus(lookupDigest),
+	const { data: depositStatuses, isLoading: depositLoading } = useQuery({
+		queryKey: ['deposit-statuses', lookupDigest],
+		queryFn: () => getDepositStatusesByDigest(lookupDigest),
 		enabled: txType === 'deposit' && !!lookupDigest && !!CONFIG.HASHI_PACKAGE_ID,
 		refetchInterval: (query) => {
-			const s = query.state.data?.status;
-			if (s === 'confirmed' || s === 'expired') return false;
+			const deposits = query.state.data ?? [];
+			if (deposits.length > 0 && deposits.every((deposit) => deposit.status === 'confirmed' || deposit.status === 'expired')) {
+				return false;
+			}
 			return POLL_DEPOSIT_STATUS;
 		},
 	});
@@ -34,7 +37,8 @@ export function LookupPanel() {
 	});
 
 	const isLoading = depositLoading || withdrawalLoading;
-	const status = txType === 'deposit' ? depositStatus : withdrawalStatus;
+	const hasDepositStatus = (depositStatuses?.length ?? 0) > 0;
+	const status = txType === 'deposit' ? hasDepositStatus : withdrawalStatus;
 
 	return (
 		<div className="space-y-4">
@@ -85,25 +89,37 @@ export function LookupPanel() {
 				</p>
 			)}
 
-			{status && txType === 'deposit' && depositStatus && (
+			{txType === 'deposit' && depositStatuses && depositStatuses.length > 0 && (
 				<div className="bg-gray-900 p-4 rounded-lg space-y-2">
 					<h3 className="font-medium">Deposit Details</h3>
 					<div className="flex justify-between text-sm">
-						<span className="text-gray-400">Request ID:</span>
-						<ExplorerLink value={depositStatus.requestId} type="sui-object" />
+						<span className="text-gray-400">Deposit requests:</span>
+						<span>{depositStatuses.length}</span>
 					</div>
-					<div className="flex justify-between text-sm">
-						<span className="text-gray-400">BTC Txid:</span>
-						<ExplorerLink value={depositStatus.btcTxid} type="btc-tx" />
-					</div>
-					<div className="flex justify-between text-sm">
-						<span className="text-gray-400">Amount:</span>
-						<span>{depositStatus.amount} BTC</span>
-					</div>
-					<div className="flex justify-between text-sm">
-						<span className="text-gray-400">Status:</span>
-						<StatusBadge status={depositStatus.status} />
-					</div>
+					{depositStatuses.map((depositStatus) => (
+						<div key={depositStatus.requestId} className="border-t border-gray-800 pt-2 space-y-2">
+							<div className="flex justify-between text-sm">
+								<span className="text-gray-400">Request ID:</span>
+								<ExplorerLink value={depositStatus.requestId} type="sui-object" />
+							</div>
+							<div className="flex justify-between text-sm">
+								<span className="text-gray-400">BTC Txid:</span>
+								<ExplorerLink value={depositStatus.btcTxid} type="btc-tx" />
+							</div>
+							<div className="flex justify-between text-sm">
+								<span className="text-gray-400">Amount:</span>
+								<span>{depositStatus.amount} BTC</span>
+							</div>
+							<div className="flex justify-between text-sm">
+								<span className="text-gray-400">Output index:</span>
+								<span>{depositStatus.btcVout}</span>
+							</div>
+							<div className="flex justify-between text-sm">
+								<span className="text-gray-400">Status:</span>
+								<StatusBadge status={depositStatus.status} />
+							</div>
+						</div>
+					))}
 				</div>
 			)}
 

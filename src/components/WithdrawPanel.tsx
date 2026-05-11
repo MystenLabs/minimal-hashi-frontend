@@ -7,7 +7,7 @@ import { hashi } from '../lib/hashi';
 import { ExplorerLink } from './ExplorerLink';
 import { StatusBadge } from './StatusBadge';
 
-const WITHDRAWAL_STEPS = ['requested', 'approved', 'processing', 'confirmed'] as const;
+const WITHDRAWAL_STEPS = ['requested', 'approved', 'processing', 'signed', 'confirmed'] as const;
 
 export function WithdrawPanel() {
 	const account = useCurrentAccount();
@@ -21,6 +21,12 @@ export function WithdrawPanel() {
 		},
 		enabled: !!account,
 		refetchInterval: POLL_BALANCE,
+	});
+
+	const { data: withdrawalFees } = useQuery({
+		queryKey: ['withdrawal-fees', account?.address],
+		queryFn: () => hashi.getWithdrawalFees(account?.address),
+		enabled: !!account,
 	});
 
 	const [btcAddress, setBtcAddress] = useState('');
@@ -45,8 +51,16 @@ export function WithdrawPanel() {
 		setSubmitting(true);
 		try {
 			const amountSats = BigInt(Math.round(parseFloat(amount) * 1e8));
+			if (amountSats <= 0n) {
+				throw new Error('Enter a valid withdrawal amount.');
+			}
 			if (balance && amountSats > balance.totalBalance) {
 				throw new Error(`Insufficient hBTC. Available: ${balance.formatted}`);
+			}
+			if (withdrawalFees && amountSats < withdrawalFees.withdrawalMinimumSats) {
+				throw new Error(
+					`Withdrawal amount must be at least ${formatBtc(withdrawalFees.withdrawalMinimumSats)} hBTC.`,
+				);
 			}
 			const { transaction } = hashi.buildWithdrawalTransaction({
 				amountSats,
@@ -148,6 +162,12 @@ export function WithdrawPanel() {
 							>
 								Max
 							</button>
+						</p>
+					)}
+					{withdrawalFees && (
+						<p className="text-xs text-gray-500 mt-1">
+							Minimum: {formatBtc(withdrawalFees.withdrawalMinimumSats)} hBTC. Worst-case BTC network fee:
+							{' '}{formatBtc(withdrawalFees.worstCaseNetworkFeeSats)} BTC.
 						</p>
 					)}
 				</div>

@@ -74,25 +74,47 @@ export function DepositPanel() {
 	const { data: btcTx, error: btcTxError, isLoading: btcTxLoading } = useQuery({
 		queryKey: ['btc-tx', trimmedTxid],
 		queryFn: async () => {
-			const result = await hashi.lookupBitcoinVout(trimmedTxid, addressData!.address);
-			if (!result) throw new Error(`No output found matching your deposit address ${addressData!.address}`);
+			const utxos = await hashi.lookupAllBitcoinVouts(trimmedTxid, addressData!.address);
+			if (utxos.length === 0) {
+				throw new Error(`No output found matching your deposit address ${addressData!.address}`);
+			}
+			const usedUtxos = await hashi.findUsedUtxos(
+				utxos.map(({ vout }) => ({ txid: trimmedTxid, vout })),
+			);
+			const usedKeys = new Set(usedUtxos.map(({ txid, vout }) => `${txid}:${vout}`));
+			const availableUtxos = utxos.filter(
+				({ vout }) => !usedKeys.has(`${trimmedTxid}:${vout}`),
+			);
+			if (availableUtxos.length === 0) {
+				throw new Error('All matching outputs in this Bitcoin transaction have already been used in Hashi.');
+			}
+
+			const totalAmountSats = availableUtxos.reduce((sum, utxo) => sum + utxo.amountSats, 0n);
 			return {
-				vout: result.vout,
-				amountSats: result.amountSats,
-				amountBtc: formatBtc(result.amountSats),
+				utxos: availableUtxos,
+				usedUtxos,
+				totalAmountSats,
+				totalAmountBtc: formatBtc(totalAmountSats),
 			};
 		},
 		enabled: trimmedTxid.length === 64 && !!addressData?.address && !!CONFIG.BTC_RPC_URL,
 		retry: false,
 	});
 
-	const { data: status } = useQuery({
-		queryKey: ['deposit-status', resultDigest],
-		queryFn: () => hashi.getDepositStatus(resultDigest),
-		enabled: !!resultDigest && !!CONFIG.HASHI_PACKAGE_ID,
+	const { data: submittedDeposits } = useQuery({
+		queryKey: ['submitted-deposits', account?.address, resultDigest],
+		queryFn: async () => {
+			const history = await hashi.getTransactionHistory(account!.address);
+			return history.filter(
+				(item) => item.direction === 'btc-to-sui' && item.suiTxDigest === resultDigest,
+			);
+		},
+		enabled: !!account?.address && !!resultDigest && !!CONFIG.HASHI_PACKAGE_ID,
 		refetchInterval: (query) => {
-			const s = query.state.data?.status;
-			if (s === 'confirmed' || s === 'expired') return false;
+			const deposits = query.state.data ?? [];
+			if (deposits.length > 0 && deposits.every((deposit) => deposit.status === 'confirmed')) {
+				return false;
+			}
 			return POLL_DEPOSIT_STATUS;
 		},
 	});
@@ -104,7 +126,7 @@ export function DepositPanel() {
 		try {
 			const { transaction } = hashi.buildDepositTransaction({
 				txid: trimmedTxid,
-				utxos: [{ vout: btcTx.vout, amountSats: btcTx.amountSats }],
+				utxos: btcTx.utxos,
 				recipient: account.address,
 			});
 			const result = await dAppKit.signAndExecuteTransaction({ transaction });
@@ -143,7 +165,7 @@ export function DepositPanel() {
 				<div className="space-y-4">
 					<h2 className="text-lg font-semibold">Step 2: Submit Deposit Request</h2>
 					<p className="text-sm text-gray-400">
-						Enter the Bitcoin transaction ID. The output and amount are detected automatically.
+						Enter the Bitcoin transaction ID. All matching outputs to your deposit address are detected automatically.
 					</p>
 
 					<div>
@@ -164,13 +186,24 @@ export function DepositPanel() {
 					{btcTx && (
 						<div className="bg-gray-900 p-4 rounded-lg space-y-2">
 							<div className="flex justify-between text-sm">
-								<span className="text-gray-400">Output index (vout):</span>
-								<span>{btcTx.vout}</span>
+								<span className="text-gray-400">Matched outputs:</span>
+								<span>{btcTx.utxos.length}</span>
 							</div>
 							<div className="flex justify-between text-sm">
-								<span className="text-gray-400">Amount:</span>
-								<span>{btcTx.amountBtc} BTC</span>
+								<span className="text-gray-400">Total deposit amount:</span>
+								<span>{btcTx.totalAmountBtc} BTC</span>
 							</div>
+							{btcTx.utxos.map((utxo) => (
+								<div key={utxo.vout} className="flex justify-between text-xs text-gray-400">
+									<span>vout {utxo.vout}</span>
+									<span>{formatBtc(utxo.amountSats)} BTC</span>
+								</div>
+							))}
+							{btcTx.usedUtxos.length > 0 && (
+								<p className="text-xs text-yellow-400">
+									Skipped already-used outputs: {btcTx.usedUtxos.map((utxo) => utxo.vout).join(', ')}
+								</p>
+							)}
 						</div>
 					)}
 
@@ -202,31 +235,45 @@ export function DepositPanel() {
 			{step === 'status' && (
 				<div className="space-y-4">
 					<h2 className="text-lg font-semibold">Step 3: Deposit Status</h2>
-					<div className="bg-gray-900 p-4 rounded-lg space-y-2">
-						<div className="flex justify-between text-sm">
-							<span className="text-gray-400">Sui TX Digest:</span>
-							<ExplorerLink value={resultDigest} type="sui-tx" />
-						</div>
-						{status ? (
-							<>
-								<div className="flex justify-between text-sm">
-									<span className="text-gray-400">BTC Txid:</span>
-									<ExplorerLink value={status.btcTxid} type="btc-tx" />
-								</div>
-								<div className="flex justify-between text-sm">
-									<span className="text-gray-400">Amount:</span>
-									<span>{status.amount} BTC</span>
-								</div>
-								<div className="flex justify-between text-sm">
-									<span className="text-gray-400">Status:</span>
-									<StatusBadge status={status.status} />
-								</div>
-								{status.status === 'pending' && (
-									<p className="text-xs text-gray-500 mt-2">
-										Waiting for 6 Bitcoin confirmations + committee verification. Polling every 15s...
-									</p>
-								)}
-							</>
+						<div className="bg-gray-900 p-4 rounded-lg space-y-2">
+							<div className="flex justify-between text-sm">
+								<span className="text-gray-400">Sui TX Digest:</span>
+								<ExplorerLink value={resultDigest} type="sui-tx" />
+							</div>
+							{submittedDeposits && submittedDeposits.length > 0 ? (
+								<>
+									<div className="flex justify-between text-sm">
+										<span className="text-gray-400">Deposit requests:</span>
+										<span>{submittedDeposits.length}</span>
+									</div>
+									{submittedDeposits.map((deposit) => (
+										<div key={deposit.requestId} className="border-t border-gray-800 pt-2 space-y-2">
+											<div className="flex justify-between text-sm">
+												<span className="text-gray-400">BTC Txid:</span>
+												<ExplorerLink value={deposit.btcTxid ?? trimmedTxid} type="btc-tx" />
+											</div>
+											<div className="flex justify-between text-sm">
+												<span className="text-gray-400">Amount:</span>
+												<span>{deposit.amount} BTC</span>
+											</div>
+											{deposit.btcVout !== undefined && (
+												<div className="flex justify-between text-sm">
+													<span className="text-gray-400">Output index:</span>
+													<span>{deposit.btcVout}</span>
+												</div>
+											)}
+											<div className="flex justify-between text-sm">
+												<span className="text-gray-400">Status:</span>
+												<StatusBadge status={deposit.status} />
+											</div>
+										</div>
+									))}
+									{submittedDeposits.some((deposit) => deposit.status === 'pending') && (
+										<p className="text-xs text-gray-500 mt-2">
+											Waiting for 6 Bitcoin confirmations + committee verification. Polling every 15s...
+										</p>
+									)}
+								</>
 						) : (
 							<p className="text-gray-500 text-sm">Loading status...</p>
 						)}
