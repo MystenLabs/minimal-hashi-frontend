@@ -8,8 +8,8 @@ For the full SDK API reference, see the [hashi-sdk README](../hashi-sdk/README.m
 
 | Flow | What the SDK does | What your frontend does |
 |------|-------------------|------------------------|
-| **Deposit** (BTC to hBTC) | Derives deposit address, looks up Bitcoin tx, builds Sui transaction | Signs + executes transaction, polls status |
-| **Withdrawal** (hBTC to BTC) | Builds burn transaction with witness program encoding | Signs + executes, shows progress pipeline |
+| **Deposit** (BTC to hBTC) | Derives deposit address, looks up all matching Bitcoin outputs, builds Sui transaction | Filters used UTXOs, signs + executes transaction, polls status |
+| **Withdrawal** (hBTC to BTC) | Builds burn transaction with witness program encoding, exposes fee/minimum data | Validates amount, signs + executes, shows progress pipeline |
 | **Balance** | Queries hBTC coin objects | Formats and displays |
 | **Status tracking** | Reads on-chain request state, returns typed status | Polls with `refetchInterval`, stops on terminal state |
 
@@ -38,7 +38,7 @@ export const hashi = new HashiClient(client, {
 });
 ```
 
-The client is stateless — one singleton serves the whole app.
+The SDK does not embed a Hashi deployment. Pass the package ID and shared object ID for the Sui network you are targeting. The client is stateless — one singleton serves the whole app.
 
 ### 2. Wire up wallet connection
 
@@ -93,21 +93,31 @@ const { data } = useQuery({
 
 ### Step 2 — Look up the Bitcoin transaction
 
-After the user sends BTC, they provide the Bitcoin txid. The SDK finds the matching output:
+After the user sends BTC, they provide the Bitcoin txid. A Bitcoin transaction can contain multiple outputs to the same Hashi deposit address, so look up all matching outputs:
 
 ```ts
-const result = await hashi.lookupBitcoinVout(btcTxid, depositAddress);
-// result = { vout: 0, amountSats: 100000n }
+const utxos = await hashi.lookupAllBitcoinVouts(btcTxid, depositAddress);
+// utxos = [{ vout: 0, amountSats: 100000n }, ...]
 ```
 
 This requires `btcRpcUrl` to be configured on the HashiClient. If you don't have a Bitcoin RPC, you can ask the user for the vout and amount manually.
+
+Before building the transaction, filter out any UTXOs the protocol already tracks:
+
+```ts
+const usedUtxos = await hashi.findUsedUtxos(
+  utxos.map(({ vout }) => ({ txid: btcTxid, vout })),
+);
+const usedKeys = new Set(usedUtxos.map(({ txid, vout }) => `${txid}:${vout}`));
+const availableUtxos = utxos.filter(({ vout }) => !usedKeys.has(`${btcTxid}:${vout}`));
+```
 
 ### Step 3 — Build and sign the deposit transaction
 
 ```ts
 const { transaction } = hashi.buildDepositTransaction({
   txid: btcTxid,
-  utxos: [{ vout: result.vout, amountSats: result.amountSats }],
+  utxos: availableUtxos,
   recipient: suiAddress,
 });
 
@@ -121,15 +131,19 @@ const info = await hashi.getDepositStatus(suiTxDigest);
 // info.status: 'pending' | 'confirmed' | 'expired'
 ```
 
-In React, use `refetchInterval` that stops on terminal states:
+`getDepositStatus()` returns one deposit request. This example also includes [`src/lib/deposit-statuses.ts`](src/lib/deposit-statuses.ts), a frontend helper that reads every `DepositRequestedEvent` from a Sui digest so manual lookup can display all requests created by a multi-UTXO deposit transaction.
+
+In React, use `refetchInterval` that stops once every displayed deposit reaches a terminal state:
 
 ```tsx
-const { data: status } = useQuery({
-  queryKey: ['deposit-status', digest],
-  queryFn: () => hashi.getDepositStatus(digest),
+const { data: deposits } = useQuery({
+  queryKey: ['deposit-statuses', digest],
+  queryFn: () => getDepositStatusesByDigest(digest),
   refetchInterval: (query) => {
-    const s = query.state.data?.status;
-    if (s === 'confirmed' || s === 'expired') return false;
+    const deposits = query.state.data ?? [];
+    if (deposits.length > 0 && deposits.every((deposit) =>
+      deposit.status === 'confirmed' || deposit.status === 'expired'
+    )) return false;
     return 15_000;
   },
 });
@@ -140,6 +154,15 @@ const { data: status } = useQuery({
 [`src/components/WithdrawPanel.tsx`](src/components/WithdrawPanel.tsx)
 
 ### Build and sign
+
+Read fee and minimum data before submitting:
+
+```ts
+const fees = await hashi.getWithdrawalFees(suiAddress);
+if (amountSats < fees.withdrawalMinimumSats) {
+  throw new Error('Withdrawal amount is below the protocol minimum');
+}
+```
 
 ```ts
 const { transaction } = hashi.buildWithdrawalTransaction({
@@ -178,7 +201,7 @@ This example uses React + dApp Kit, but the SDK doesn't require either. The inte
 1. **Create a `HashiClient`** with your Sui client and Hashi config
 2. **Call SDK methods** to build transactions (`buildDepositTransaction`, `buildWithdrawalTransaction`)
 3. **Sign transactions** with whatever wallet adapter your platform uses
-4. **Poll status** using `getDepositStatus` / `getWithdrawalStatus` (or the blocking `waitForDeposit` / `waitForWithdrawal` helpers for server-side flows)
+4. **Poll status** using `getDepositStatus` / `getWithdrawalStatus` (or the blocking `waitForDeposit` / `waitForWithdrawal` helpers for server-side flows). If one Sui transaction can contain multiple deposit requests, read all matching deposit events from the transaction digest.
 
 For server-side or non-React integrations, the SDK provides blocking helpers that poll internally:
 
