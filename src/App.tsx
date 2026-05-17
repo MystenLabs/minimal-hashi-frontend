@@ -74,7 +74,7 @@ function BalanceDisplay() {
 	const { data: balance } = useQuery({
 		queryKey: ['hbtc-balance', account?.address],
 		queryFn: async () => {
-			const b = await hashi.getBalance(account!.address);
+			const b = await hashi.view.balance(account!.address);
 			return { totalBalance: b.totalBalance, formatted: formatBtc(b.totalBalance) };
 		},
 		enabled: !!account,

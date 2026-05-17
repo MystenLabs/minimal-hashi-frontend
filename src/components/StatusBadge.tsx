@@ -10,9 +10,10 @@ const colors: Record<string, string> = {
 };
 
 export function StatusBadge({ status }: { status: string }) {
+	const normalizedStatus = status.toLowerCase();
 	return (
-		<span className={`px-2 py-0.5 rounded text-xs font-medium ${colors[status] ?? 'bg-gray-700 text-gray-300'}`}>
-			{status}
+		<span className={`px-2 py-0.5 rounded text-xs font-medium ${colors[normalizedStatus] ?? 'bg-gray-700 text-gray-300'}`}>
+			{normalizedStatus}
 		</span>
 	);
 }

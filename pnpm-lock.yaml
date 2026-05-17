@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@mysten-incubation/hashi':
+        specifier: ^0.1.0
+        version: 0.1.0(@mysten/sui@2.15.0(typescript@5.9.3))
       '@mysten/dapp-kit-core':
         specifier: ^1.2.1
         version: 1.2.1(@mysten/sui@2.15.0(typescript@5.9.3))(typescript@5.9.3)
@@ -20,9 +23,6 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.71.3
         version: 5.95.2(react@19.2.4)
-      hashi-sdk:
-        specifier: file:../hashi-sdk
-        version: file:../hashi-sdk(@mysten/sui@2.15.0(typescript@5.9.3))
       react:
         specifier: ^19.0.0
         version: 19.2.4
@@ -296,6 +296,11 @@ packages:
 
   '@lit/task@1.0.3':
     resolution: {integrity: sha512-1gJGJl8WON+2j0y9xfcD+XsS1rvcy3XDgsIhcdUW++yTR8ESjZW6o7dn8M8a4SZM8NnJe6ynS2cKWwsbfLOurg==}
+
+  '@mysten-incubation/hashi@0.1.0':
+    resolution: {integrity: sha512-tnC8Gvbr4I11PVvRlNEyGdAC1wwXBFbO9/LFy4mmeU2tKkmcx/gt41G/Gr+kQnIpqkgCKcpOcjxsFkRhTU8Bbg==}
+    peerDependencies:
+      '@mysten/sui': ^2.14.1
 
   '@mysten/bcs@2.0.3':
     resolution: {integrity: sha512-dwcaL4HNAsEGpU3hKUAsXgCZp9l6++e2A3THpzoYZ8e7bsy4XH1V0dXD5dIzgNcVZiZfb6ZnDMG+gdF6+1WOQA==}
@@ -831,11 +836,6 @@ packages:
     resolution: {integrity: sha512-5bJ+nf/UCpAjHM8i06fl7eLyVC9iuNAjm9qzkiu2ZGhM0VscSvS6WDPfAwkdkBuoXGM9FJSbKl6wylMwP9Ktig==}
     engines: {node: ^12.22.0 || ^14.16.0 || ^16.0.0 || >=17.0.0}
 
-  hashi-sdk@file:../hashi-sdk:
-    resolution: {directory: ../hashi-sdk, type: directory}
-    peerDependencies:
-      '@mysten/sui': ^2.13.3
-
   jiti@2.6.1:
     resolution: {integrity: sha512-ekilCSN1jwRvIbgeg/57YFh8qQDNbwDb9xT/qu2DAHbFFZUicIl4ygVaAvzveMhMVr3LnpSKTNnwt8PoOfmKhQ==}
     hasBin: true
@@ -1200,6 +1200,13 @@ snapshots:
   '@lit/task@1.0.3':
     dependencies:
       '@lit/reactive-element': 2.1.2
+
+  '@mysten-incubation/hashi@0.1.0(@mysten/sui@2.15.0(typescript@5.9.3))':
+    dependencies:
+      '@mysten/sui': 2.15.0(typescript@5.9.3)
+      '@noble/curves': 2.0.1
+      '@noble/hashes': 2.0.1
+      '@scure/base': 2.0.0
 
   '@mysten/bcs@2.0.3':
     dependencies:
@@ -1686,14 +1693,6 @@ snapshots:
   graceful-fs@4.2.11: {}
 
   graphql@16.13.2: {}
-
-  hashi-sdk@file:../hashi-sdk(@mysten/sui@2.15.0(typescript@5.9.3)):
-    dependencies:
-      '@mysten/bcs': 2.0.3
-      '@mysten/sui': 2.15.0(typescript@5.9.3)
-      '@noble/curves': 2.0.1
-      '@noble/hashes': 2.0.1
-      '@scure/base': 2.0.0
 
   jiti@2.6.1: {}
 

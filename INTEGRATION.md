@@ -1,211 +1,160 @@
 # Hashi Frontend Integration Guide
 
-This guide walks through integrating [`hashi-sdk`](../hashi-sdk) into a React frontend with wallet connection, transaction signing, and status polling. The code in this repo is the working example — each section links to the relevant source file.
+This repo shows the minimum moving pieces for integrating [`@mysten-incubation/hashi`](https://www.npmjs.com/package/@mysten-incubation/hashi) into a browser wallet flow.
 
-For the full SDK API reference, see the [hashi-sdk README](../hashi-sdk/README.md).
+The app uses React, React Query, and `@mysten/dapp-kit-react`, but the important boundary is simple: the Hashi SDK derives addresses, reads protocol state, and builds unsigned Sui transactions; your frontend owns wallet connection, signing, user input, and status display.
 
-## Overview
+## Source Map
 
-| Flow | What the SDK does | What your frontend does |
-|------|-------------------|------------------------|
-| **Deposit** (BTC to hBTC) | Derives deposit address, looks up all matching Bitcoin outputs, builds Sui transaction | Filters used UTXOs, signs + executes transaction, polls status |
-| **Withdrawal** (hBTC to BTC) | Builds burn transaction with witness program encoding, exposes fee/minimum data | Validates amount, signs + executes, shows progress pipeline |
-| **Balance** | Queries hBTC coin objects | Formats and displays |
-| **Status tracking** | Reads on-chain request state, returns typed status | Polls with `refetchInterval`, stops on terminal state |
+| File | Purpose |
+| --- | --- |
+| [src/lib/hashi.ts](src/lib/hashi.ts) | Creates the `HashiClient`, Sui client, and Bitcoin address helpers |
+| [src/dapp-kit.ts](src/dapp-kit.ts) | Configures wallet/network support |
+| [src/components/DepositPanel.tsx](src/components/DepositPanel.tsx) | Deposit address, BTC tx lookup, UTXO filtering, deposit signing |
+| [src/components/WithdrawPanel.tsx](src/components/WithdrawPanel.tsx) | Withdrawal amount validation, BTC address decoding, withdrawal signing |
+| [src/components/LookupPanel.tsx](src/components/LookupPanel.tsx) | Manual status lookup by Sui digest |
+| [src/lib/deposit-statuses.ts](src/lib/deposit-statuses.ts) | Reads every deposit request emitted by a multi-UTXO deposit transaction |
 
-The SDK is framework-agnostic — it builds transactions but never signs them. Your frontend handles wallet interaction and UI.
-
-## Setup
-
-### 1. Create the HashiClient (once, at module level)
-
-[`src/lib/hashi.ts`](src/lib/hashi.ts)
+## 1. Create a Client
 
 ```ts
-import { HashiClient } from 'hashi-sdk';
+import { HashiClient } from '@mysten-incubation/hashi';
 import { SuiGrpcClient } from '@mysten/sui/grpc';
 
-const client = new SuiGrpcClient({
+const suiClient = new SuiGrpcClient({
   network: 'devnet',
   baseUrl: 'https://fullnode.devnet.sui.io:443',
 });
 
-export const hashi = new HashiClient(client, {
-  packageId: '0x...',    // from env vars or config
-  objectId: '0x...',
-  bitcoinNetwork: 'testnet',
-  btcRpcUrl: 'https://...', // optional, for UTXO auto-detection
+export const hashi = new HashiClient({
+  client: suiClient,
+  network: 'devnet',
+  packageId: '0x...',
+  hashiObjectId: '0x...',
+  bitcoinNetwork: 'signet',
+  btcRpcUrl: 'https://...',
 });
 ```
 
-The SDK does not embed a Hashi deployment. Pass the package ID and shared object ID for the Sui network you are targeting. The client is stateless — one singleton serves the whole app.
+Use deployment IDs for the Sui network you target. `btcRpcUrl` is optional, but without it your UI must ask users for the Bitcoin output index and amount manually.
 
-### 2. Wire up wallet connection
+## 2. Sign With a Wallet
 
-[`src/dapp-kit.ts`](src/dapp-kit.ts) / [`src/main.tsx`](src/main.tsx)
-
-This example uses [`@mysten/dapp-kit-react`](https://www.npmjs.com/package/@mysten/dapp-kit-react) for wallet connect and transaction signing. Any Sui wallet adapter works.
-
-```ts
-import { createDAppKit } from '@mysten/dapp-kit-react';
-import { SuiGrpcClient } from '@mysten/sui/grpc';
-
-export const dAppKit = createDAppKit({
-  networks: ['devnet', 'testnet', 'mainnet'],
-  defaultNetwork: 'devnet',
-  createClient(network) {
-    return new SuiGrpcClient({ network, baseUrl: FULLNODE_URLS[network] });
-  },
-});
-```
+The SDK's `hashi.tx.*` methods return unsigned Sui transactions. In this app, dApp Kit signs and executes them:
 
 ```tsx
-<QueryClientProvider client={queryClient}>
-  <DAppKitProvider dAppKit={dAppKit}>
-    <App />
-  </DAppKitProvider>
-</QueryClientProvider>
+const dAppKit = useDAppKit();
+const result = await dAppKit.signAndExecuteTransaction({ transaction });
 ```
 
-## Deposit flow
+Any wallet adapter that can sign a Sui `Transaction` can be used.
 
-[`src/components/DepositPanel.tsx`](src/components/DepositPanel.tsx)
+## 3. Deposit BTC to hBTC
 
-The deposit is a 3-step process: derive address, wait for BTC, submit on-chain request.
-
-### Step 1 — Generate a deposit address
+Generate the user's deposit address:
 
 ```ts
-const { address } = await hashi.generateDepositAddress(suiAddress);
-// Display this address to the user — they send BTC to it
-```
-
-The address is deterministic (same Sui address always gets the same BTC address), so you can cache it aggressively. In this example we use React Query with a 5-minute `staleTime`:
-
-```tsx
-const { data } = useQuery({
-  queryKey: ['deposit-address', account?.address],
-  queryFn: () => hashi.generateDepositAddress(account!.address),
-  enabled: !!account?.address,
-  staleTime: 5 * 60 * 1000,
+const depositAddress = await hashi.generateDepositAddress({
+  suiAddress: account.address,
 });
 ```
 
-### Step 2 — Look up the Bitcoin transaction
-
-After the user sends BTC, they provide the Bitcoin txid. A Bitcoin transaction can contain multiple outputs to the same Hashi deposit address, so look up all matching outputs:
+After the user sends BTC, find the outputs in their Bitcoin transaction that paid that address:
 
 ```ts
-const utxos = await hashi.lookupAllBitcoinVouts(btcTxid, depositAddress);
-// utxos = [{ vout: 0, amountSats: 100000n }, ...]
+const txidHex = userInput.trim().replace(/^0x/i, '').toLowerCase();
+const suiTxid = `0x${txidHex}`;
+
+const utxos = await hashi.bitcoin.lookupAllVouts(txidHex, depositAddress);
 ```
 
-This requires `btcRpcUrl` to be configured on the HashiClient. If you don't have a Bitcoin RPC, you can ask the user for the vout and amount manually.
+Most deposits have one matching output. `lookupAllVouts()` handles the valid Bitcoin edge case where one transaction pays the same address more than once.
 
-Before building the transaction, filter out any UTXOs the protocol already tracks:
+Before submission, check that those outputs are not already tracked by Hashi:
 
 ```ts
-const usedUtxos = await hashi.findUsedUtxos(
-  utxos.map(({ vout }) => ({ txid: btcTxid, vout })),
+const usage = await hashi.view.findUsedUtxos(
+  utxos.map(({ vout }) => ({ txid: suiTxid, vout })),
 );
-const usedKeys = new Set(usedUtxos.map(({ txid, vout }) => `${txid}:${vout}`));
-const availableUtxos = utxos.filter(({ vout }) => !usedKeys.has(`${btcTxid}:${vout}`));
 ```
 
-### Step 3 — Build and sign the deposit transaction
+Then build and sign the Sui deposit transaction:
 
 ```ts
-const { transaction } = hashi.buildDepositTransaction({
-  txid: btcTxid,
+const transaction = hashi.tx.deposit({
+  txid: suiTxid,
   utxos: availableUtxos,
-  recipient: suiAddress,
+  recipient: account.address,
 });
 
 const result = await dAppKit.signAndExecuteTransaction({ transaction });
 ```
 
-### Step 4 — Poll for confirmation
+See [DepositPanel.tsx](src/components/DepositPanel.tsx) for the full filtering and UI flow.
+
+## 4. Withdraw hBTC to BTC
+
+Read the current withdrawal minimum and fee estimate:
 
 ```ts
-const info = await hashi.getDepositStatus(suiTxDigest);
-// info.status: 'pending' | 'confirmed' | 'expired'
+const fees = await hashi.view.withdrawalFees(account.address);
 ```
 
-`getDepositStatus()` returns one deposit request. This example also includes [`src/lib/deposit-statuses.ts`](src/lib/deposit-statuses.ts), a frontend helper that reads every `DepositRequestedEvent` from a Sui digest so manual lookup can display all requests created by a multi-UTXO deposit transaction.
-
-In React, use `refetchInterval` that stops once every displayed deposit reaches a terminal state:
-
-```tsx
-const { data: deposits } = useQuery({
-  queryKey: ['deposit-statuses', digest],
-  queryFn: () => getDepositStatusesByDigest(digest),
-  refetchInterval: (query) => {
-    const deposits = query.state.data ?? [];
-    if (deposits.length > 0 && deposits.every((deposit) =>
-      deposit.status === 'confirmed' || deposit.status === 'expired'
-    )) return false;
-    return 15_000;
-  },
-});
-```
-
-## Withdrawal flow
-
-[`src/components/WithdrawPanel.tsx`](src/components/WithdrawPanel.tsx)
-
-### Build and sign
-
-Read fee and minimum data before submitting:
+Decode the user's Bitcoin address into the witness program expected by the transaction builder:
 
 ```ts
-const fees = await hashi.getWithdrawalFees(suiAddress);
-if (amountSats < fees.withdrawalMinimumSats) {
-  throw new Error('Withdrawal amount is below the protocol minimum');
-}
+import { bitcoinAddressToWitnessProgram } from '@mysten-incubation/hashi';
+
+const { program } = bitcoinAddressToWitnessProgram(bitcoinAddress, 'signet');
 ```
 
+Build and sign the withdrawal transaction:
+
 ```ts
-const { transaction } = hashi.buildWithdrawalTransaction({
-  amountSats: BigInt(Math.round(parseFloat(userInput) * 1e8)),
-  bitcoinAddress: 'tb1q...', // SDK handles witness program extraction
+const transaction = hashi.tx.requestWithdrawal({
+  amount: amountSats,
+  bitcoinAddress: program,
 });
 
 const result = await dAppKit.signAndExecuteTransaction({ transaction });
 ```
 
-### Poll status
+See [WithdrawPanel.tsx](src/components/WithdrawPanel.tsx) for amount validation and status rendering.
+
+## 5. Read Status and Balance
+
+Deposit status:
 
 ```ts
-const info = await hashi.getWithdrawalStatus(suiTxDigest);
-// info.status: 'requested' | 'approved' | 'processing' | 'signed' | 'confirmed' | 'cancelled'
+const deposit = await hashi.view.depositStatus(suiTxDigest);
 ```
 
-The withdrawal pipeline has more stages than deposits. This example shows a progress bar across the steps — see the source file linked above.
-
-## Balance query
+Withdrawal status:
 
 ```ts
-const { totalBalance } = await hashi.getBalance(suiAddress);
+const withdrawal = await hashi.view.withdrawalStatus(suiTxDigest);
 ```
 
-`totalBalance` is in satoshis (bigint). Format for display:
+hBTC balance:
 
 ```ts
-const display = (Number(totalBalance) / 1e8).toFixed(8) + ' hBTC';
+const { totalBalance } = await hashi.view.balance(account.address);
 ```
 
-## Adapting for your platform
+Status polling is frontend-owned. This app uses React Query `refetchInterval` and stops polling once deposits are `confirmed` / `expired` or withdrawals are `Confirmed` / `cancelled`.
 
-This example uses React + dApp Kit, but the SDK doesn't require either. The integration points are:
+## Multi-UTXO Status
 
-1. **Create a `HashiClient`** with your Sui client and Hashi config
-2. **Call SDK methods** to build transactions (`buildDepositTransaction`, `buildWithdrawalTransaction`)
-3. **Sign transactions** with whatever wallet adapter your platform uses
-4. **Poll status** using `getDepositStatus` / `getWithdrawalStatus` (or the blocking `waitForDeposit` / `waitForWithdrawal` helpers for server-side flows). If one Sui transaction can contain multiple deposit requests, read all matching deposit events from the transaction digest.
+`hashi.tx.deposit({ utxos })` can create multiple deposit requests in one Sui transaction. The SDK's `hashi.view.depositStatus(txDigest)` returns one request, which is enough for the common one-output case.
 
-For server-side or non-React integrations, the SDK provides blocking helpers that poll internally:
+If your UI submits multiple UTXOs at once and needs to display every request from the digest, read every `DepositRequestedEvent`. This repo does that in [src/lib/deposit-statuses.ts](src/lib/deposit-statuses.ts).
 
-```ts
-const deposit = await hashi.waitForDeposit(txDigest);
-const withdrawal = await hashi.waitForWithdrawal(txDigest);
-```
+## Integration Checklist
+
+1. Create a `HashiClient` with your Sui client and deployment config.
+2. Generate a BTC deposit address with `hashi.generateDepositAddress()`.
+3. Look up BTC outputs with `hashi.bitcoin.lookupAllVouts()` or collect `vout` and amount manually.
+4. Filter reused outputs with `hashi.view.findUsedUtxos()`.
+5. Build unsigned transactions with `hashi.tx.deposit()` and `hashi.tx.requestWithdrawal()`.
+6. Sign through your wallet adapter.
+7. Poll `hashi.view.depositStatus()` and `hashi.view.withdrawalStatus()` until terminal status.

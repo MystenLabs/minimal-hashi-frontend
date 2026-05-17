@@ -1,6 +1,6 @@
-import type { DepositInfo, DepositStatus } from 'hashi-sdk';
+import type { DepositInfo, DepositStatus } from '@mysten-incubation/hashi';
 
-import { hashi } from './hashi';
+import { HASHI_OBJECT_ID, HASHI_PACKAGE_ID, suiClient } from './hashi';
 
 const OBJECT_BAG_ADDRESS_TYPE = '0x0000000000000000000000000000000000000000000000000000000000000002::dynamic_object_field::Wrapper<address>';
 
@@ -13,7 +13,7 @@ type DepositEventJson = {
 };
 
 export async function getDepositStatusesByDigest(txDigest: string): Promise<DepositInfo[]> {
-	const txResult = await hashi.client.getTransaction({
+	const txResult = await suiClient.getTransaction({
 		digest: txDigest,
 		include: { events: true },
 	});
@@ -43,7 +43,7 @@ async function buildDepositInfo(
 	let status: DepositStatus = 'unknown';
 
 	try {
-		const { object } = await hashi.client.getObject({
+		const { object } = await suiClient.getObject({
 			objectId: parsed.request_id,
 			include: { json: true },
 		});
@@ -55,7 +55,7 @@ async function buildDepositInfo(
 		if (requestsBagId === undefined) {
 			status = 'unknown';
 		} else if (requestsBagId) {
-			const reqResult = await hashi.client
+			const reqResult = await suiClient
 				.getDynamicField({
 					parentId: requestsBagId,
 					name: { type: OBJECT_BAG_ADDRESS_TYPE, bcs: serializeAddress(parsed.request_id) },
@@ -75,11 +75,11 @@ async function buildDepositInfo(
 
 	return {
 		requestId: parsed.request_id,
-		amount: (Number(parsed.amount) / 1e8).toString(),
-		derivationPath: parsed.derivation_path,
+		amountSats: BigInt(parsed.amount),
+		recipient: parsed.derivation_path,
 		btcTxid,
 		btcVout: parsed.utxo_id.vout,
-		timestampMs: parsed.timestamp_ms,
+		timestampMs: BigInt(parsed.timestamp_ms),
 		status,
 		suiTxDigest: txDigest,
 	};
@@ -87,17 +87,17 @@ async function buildDepositInfo(
 
 async function fetchDepositRequestsBagId(): Promise<string | undefined> {
 	try {
-		const result = await hashi.client.getDynamicField({
-			parentId: hashi.objectId,
+		const result = await suiClient.getDynamicField({
+			parentId: HASHI_OBJECT_ID,
 			name: {
-				type: `${hashi.packageId}::bitcoin_state::BitcoinStateKey`,
+				type: `${HASHI_PACKAGE_ID}::bitcoin_state::BitcoinStateKey`,
 				bcs: new Uint8Array([0]),
 			},
 		});
 
 		if (!result.dynamicField?.fieldId) return undefined;
 
-		const { object } = await hashi.client.getObject({
+		const { object } = await suiClient.getObject({
 			objectId: result.dynamicField.fieldId,
 			include: { json: true },
 		});

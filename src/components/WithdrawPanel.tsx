@@ -3,11 +3,11 @@ import { useCurrentAccount, useDAppKit } from '@mysten/dapp-kit-react';
 import { useQuery } from '@tanstack/react-query';
 
 import { CONFIG, POLL_BALANCE, POLL_WITHDRAWAL_STATUS, formatBtc } from '../lib/constants';
-import { hashi } from '../lib/hashi';
+import { decodeBitcoinAddress, formatBitcoinAddress, hashi } from '../lib/hashi';
 import { ExplorerLink } from './ExplorerLink';
 import { StatusBadge } from './StatusBadge';
 
-const WITHDRAWAL_STEPS = ['requested', 'approved', 'processing', 'signed', 'confirmed'] as const;
+const WITHDRAWAL_STEPS = ['Requested', 'Approved', 'Processing', 'Signed', 'Confirmed'] as const;
 
 export function WithdrawPanel() {
 	const account = useCurrentAccount();
@@ -16,7 +16,7 @@ export function WithdrawPanel() {
 	const { data: balance } = useQuery({
 		queryKey: ['hbtc-balance', account?.address],
 		queryFn: async () => {
-			const b = await hashi.getBalance(account!.address);
+			const b = await hashi.view.balance(account!.address);
 			return { totalBalance: b.totalBalance, formatted: formatBtc(b.totalBalance) };
 		},
 		enabled: !!account,
@@ -25,7 +25,7 @@ export function WithdrawPanel() {
 
 	const { data: withdrawalFees } = useQuery({
 		queryKey: ['withdrawal-fees', account?.address],
-		queryFn: () => hashi.getWithdrawalFees(account?.address),
+		queryFn: () => hashi.view.withdrawalFees(account?.address),
 		enabled: !!account,
 	});
 
@@ -37,11 +37,11 @@ export function WithdrawPanel() {
 
 	const { data: status } = useQuery({
 		queryKey: ['withdrawal-status', resultDigest],
-		queryFn: () => hashi.getWithdrawalStatus(resultDigest),
+		queryFn: () => hashi.view.withdrawalStatus(resultDigest),
 		enabled: !!resultDigest && !!CONFIG.HASHI_PACKAGE_ID,
 		refetchInterval: (query) => {
 			const s = query.state.data?.status;
-			if (s === 'confirmed' || s === 'cancelled') return false;
+			if (s === 'Confirmed' || s === 'cancelled') return false;
 			return POLL_WITHDRAWAL_STATUS;
 		},
 	});
@@ -62,9 +62,9 @@ export function WithdrawPanel() {
 					`Withdrawal amount must be at least ${formatBtc(withdrawalFees.withdrawalMinimumSats)} hBTC.`,
 				);
 			}
-			const { transaction } = hashi.buildWithdrawalTransaction({
-				amountSats,
-				bitcoinAddress: btcAddress.trim(),
+			const transaction = hashi.tx.requestWithdrawal({
+				amount: amountSats,
+				bitcoinAddress: decodeBitcoinAddress(btcAddress.trim()),
 			});
 			const result = await dAppKit.signAndExecuteTransaction({ transaction });
 			setResultDigest(result.Transaction!.digest);
@@ -88,11 +88,11 @@ export function WithdrawPanel() {
 					</div>
 					<div className="flex justify-between text-sm">
 						<span className="text-gray-400">Amount:</span>
-						<span>{status.btcAmount} hBTC</span>
+						<span>{formatBtc(status.btcAmountSats)} hBTC</span>
 					</div>
 					<div className="flex justify-between text-sm">
 						<span className="text-gray-400">To:</span>
-						<ExplorerLink value={status.bitcoinAddress} type="btc-address" />
+						<ExplorerLink value={formatBitcoinAddress(status.bitcoinAddress)} type="btc-address" />
 					</div>
 					<div className="flex justify-between text-sm">
 						<span className="text-gray-400">Status:</span>
@@ -106,13 +106,13 @@ export function WithdrawPanel() {
 							return (
 								<div key={s} className="flex-1">
 									<div className={`h-1 rounded ${isActive ? 'bg-blue-500' : 'bg-gray-700'}`} />
-									<p className={`text-xs mt-1 ${isActive ? 'text-blue-400' : 'text-gray-600'}`}>{s}</p>
+									<p className={`text-xs mt-1 ${isActive ? 'text-blue-400' : 'text-gray-600'}`}>{s.toLowerCase()}</p>
 								</div>
 							);
 						})}
 					</div>
 
-					{status.status !== 'confirmed' && status.status !== 'cancelled' && (
+					{status.status !== 'Confirmed' && status.status !== 'cancelled' && (
 						<p className="text-xs text-gray-500 mt-2">Polling every 15s...</p>
 					)}
 				</div>

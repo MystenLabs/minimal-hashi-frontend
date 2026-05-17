@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
-import { CONFIG, POLL_DEPOSIT_STATUS, POLL_WITHDRAWAL_STATUS } from '../lib/constants';
+import { CONFIG, POLL_DEPOSIT_STATUS, POLL_WITHDRAWAL_STATUS, formatBtc } from '../lib/constants';
 import { getDepositStatusesByDigest } from '../lib/deposit-statuses';
-import { hashi } from '../lib/hashi';
+import { formatBitcoinAddress, hashi } from '../lib/hashi';
 import { ExplorerLink } from './ExplorerLink';
 import { StatusBadge } from './StatusBadge';
 
@@ -27,11 +27,11 @@ export function LookupPanel() {
 
 	const { data: withdrawalStatus, isLoading: withdrawalLoading } = useQuery({
 		queryKey: ['withdrawal-status', lookupDigest],
-		queryFn: () => hashi.getWithdrawalStatus(lookupDigest),
+		queryFn: () => hashi.view.withdrawalStatus(lookupDigest),
 		enabled: txType === 'withdrawal' && !!lookupDigest && !!CONFIG.HASHI_PACKAGE_ID,
 		refetchInterval: (query) => {
 			const s = query.state.data?.status;
-			if (s === 'confirmed' || s === 'cancelled') return false;
+			if (s === 'Confirmed' || s === 'cancelled') return false;
 			return POLL_WITHDRAWAL_STATUS;
 		},
 	});
@@ -108,7 +108,7 @@ export function LookupPanel() {
 							</div>
 							<div className="flex justify-between text-sm">
 								<span className="text-gray-400">Amount:</span>
-								<span>{depositStatus.amount} BTC</span>
+								<span>{formatBtc(depositStatus.amountSats)} BTC</span>
 							</div>
 							<div className="flex justify-between text-sm">
 								<span className="text-gray-400">Output index:</span>
@@ -132,11 +132,11 @@ export function LookupPanel() {
 					</div>
 					<div className="flex justify-between text-sm">
 						<span className="text-gray-400">Amount:</span>
-						<span>{withdrawalStatus.btcAmount} hBTC</span>
+						<span>{formatBtc(withdrawalStatus.btcAmountSats)} hBTC</span>
 					</div>
 					<div className="flex justify-between text-sm">
 						<span className="text-gray-400">To:</span>
-						<ExplorerLink value={withdrawalStatus.bitcoinAddress} type="btc-address" />
+						<ExplorerLink value={formatBitcoinAddress(withdrawalStatus.bitcoinAddress)} type="btc-address" />
 					</div>
 					<div className="flex justify-between text-sm">
 						<span className="text-gray-400">Status:</span>

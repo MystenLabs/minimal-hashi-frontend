@@ -6,14 +6,14 @@
   "scripts": {
     "dev": "vite --mode devnet",
     "build": "tsc && vite build",
-    "codegen": "echo 'Codegen no longer needed — using hashi-sdk'"
+    "codegen": "echo 'Codegen no longer needed — using @mysten-incubation/hashi'"
   },
   "dependencies": {
     "@mysten/dapp-kit-core": "^1.2.1",
     "@mysten/dapp-kit-react": "^2.0.1",
     "@mysten/sui": "^2.13.3",
     "@tanstack/react-query": "^5.71.3",
-    "hashi-sdk": "file:../hashi-sdk",
+    "@mysten-incubation/hashi": "^0.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

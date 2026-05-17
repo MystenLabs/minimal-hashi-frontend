@@ -15,29 +15,29 @@ import { StatusBadge } from './StatusBadge';
 export function DepositAddressDisplay() {
 	const account = useCurrentAccount();
 
-	const { data: addressData, isLoading } = useQuery({
+	const { data: depositAddress, isLoading } = useQuery({
 		queryKey: ['deposit-address', account?.address],
-		queryFn: () => hashi.generateDepositAddress(account!.address),
+		queryFn: () => hashi.generateDepositAddress({ suiAddress: account!.address }),
 		enabled: !!account?.address && !!CONFIG.HASHI_OBJECT_ID,
 		staleTime: 5 * 60 * 1000,
 	});
 
 	if (isLoading) return <p className="mb-6 text-gray-500">Deriving deposit address...</p>;
-	if (!addressData) return null;
+	if (!depositAddress) return null;
 
 	return (
 		<div className="mb-6 p-4 bg-gray-900 rounded-lg space-y-2">
 			<label className="text-xs text-gray-500">Your BTC deposit address:</label>
-			<code className="block text-sm break-all text-blue-400">{addressData.address}</code>
+			<code className="block text-sm break-all text-blue-400">{depositAddress}</code>
 			<div className="flex gap-3">
 				<button
-					onClick={() => navigator.clipboard.writeText(addressData.address)}
+					onClick={() => navigator.clipboard.writeText(depositAddress)}
 					className="text-xs text-gray-400 hover:text-white"
 				>
 					Copy to clipboard
 				</button>
 				<a
-					href={`${MEMPOOL_BASE_URL}/address/${addressData.address}`}
+					href={`${MEMPOOL_BASE_URL}/address/${depositAddress}`}
 					target="_blank"
 					rel="noopener noreferrer"
 					className="text-xs text-blue-400 hover:text-blue-300"
@@ -57,9 +57,9 @@ export function DepositPanel() {
 	const account = useCurrentAccount();
 	const dAppKit = useDAppKit();
 
-	const { data: addressData } = useQuery({
+	const { data: depositAddress } = useQuery({
 		queryKey: ['deposit-address', account?.address],
-		queryFn: () => hashi.generateDepositAddress(account!.address),
+		queryFn: () => hashi.generateDepositAddress({ suiAddress: account!.address }),
 		enabled: !!account?.address && !!CONFIG.HASHI_OBJECT_ID,
 		staleTime: 5 * 60 * 1000,
 	});
@@ -70,21 +70,25 @@ export function DepositPanel() {
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState('');
 
-	const trimmedTxid = txid.trim();
+	const txidHex = txid.trim().replace(/^0x/i, '').toLowerCase();
+	const suiTxid = `0x${txidHex}`;
+	const isValidTxid = /^[0-9a-f]{64}$/i.test(txidHex);
 
 	const { data: btcTx, error: btcTxError, isLoading: btcTxLoading } = useQuery({
-		queryKey: ['btc-tx', account?.address, addressData?.address, trimmedTxid],
+		queryKey: ['btc-tx', account?.address, depositAddress, txidHex],
 		queryFn: async () => {
-			const utxos = await hashi.lookupAllBitcoinVouts(trimmedTxid, addressData!.address);
+			const utxos = await hashi.bitcoin.lookupAllVouts(txidHex, depositAddress!);
 			if (utxos.length === 0) {
-				throw new Error(`No output found matching your deposit address ${addressData!.address}`);
+				throw new Error(`No output found matching your deposit address ${depositAddress}`);
 			}
-			const usedUtxos = await hashi.findUsedUtxos(
-				utxos.map(({ vout }) => ({ txid: trimmedTxid, vout })),
+			const usedUtxos = (await hashi.view.findUsedUtxos(
+				utxos.map(({ vout }) => ({ txid: suiTxid, vout })),
+			)).filter(({ isUsed }) => isUsed).map(({ utxoId }) => utxoId);
+			const usedKeys = new Set(
+				usedUtxos.map(({ txid, vout }) => `${txid.toLowerCase()}:${vout}`),
 			);
-			const usedKeys = new Set(usedUtxos.map(({ txid, vout }) => `${txid}:${vout}`));
 			const availableUtxos = utxos.filter(
-				({ vout }) => !usedKeys.has(`${trimmedTxid}:${vout}`),
+				({ vout }) => !usedKeys.has(`${suiTxid.toLowerCase()}:${vout}`),
 			);
 			if (availableUtxos.length === 0) {
 				throw new Error('All matching outputs in this Bitcoin transaction have already been used in Hashi.');
@@ -98,7 +102,7 @@ export function DepositPanel() {
 				totalAmountBtc: formatBtc(totalAmountSats),
 			};
 		},
-		enabled: trimmedTxid.length === 64 && !!addressData?.address && !!CONFIG.BTC_RPC_URL,
+		enabled: isValidTxid && !!depositAddress && !!CONFIG.BTC_RPC_URL,
 		retry: false,
 	});
 
@@ -120,8 +124,8 @@ export function DepositPanel() {
 		setError('');
 		setSubmitting(true);
 		try {
-			const { transaction } = hashi.buildDepositTransaction({
-				txid: trimmedTxid,
+			const transaction = hashi.tx.deposit({
+				txid: suiTxid,
 				utxos: btcTx.utxos,
 				recipient: account.address,
 			});
@@ -246,11 +250,11 @@ export function DepositPanel() {
 										<div key={deposit.requestId} className="border-t border-gray-800 pt-2 space-y-2">
 											<div className="flex justify-between text-sm">
 												<span className="text-gray-400">BTC Txid:</span>
-												<ExplorerLink value={deposit.btcTxid ?? trimmedTxid} type="btc-tx" />
+												<ExplorerLink value={deposit.btcTxid ?? txidHex} type="btc-tx" />
 											</div>
 											<div className="flex justify-between text-sm">
 												<span className="text-gray-400">Amount:</span>
-												<span>{deposit.amount} BTC</span>
+												<span>{formatBtc(deposit.amountSats)} BTC</span>
 											</div>
 											{deposit.btcVout !== undefined && (
 												<div className="flex justify-between text-sm">
