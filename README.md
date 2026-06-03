@@ -48,6 +48,8 @@ The deposit flow:
 
 The lookup screen uses [src/lib/deposit-statuses.ts](src/lib/deposit-statuses.ts) to render every `DepositRequestedEvent` emitted by a multi-UTXO deposit transaction. The SDK's `hashi.view.depositStatus(txDigest)` returns one request, which is enough for the common case but not for displaying all requests in a batch.
 
+As of `@mysten-incubation/hashi` 0.3.x, deposit addresses are 2-of-2 taproot addresses derived from the on-chain guardian BTC key and the MPC-derived child key. `hashi.generateDepositAddress()` reads that guardian config and fails if the deployment is not guardian-provisioned.
+
 ## Dependencies
 
 | Package | Purpose |

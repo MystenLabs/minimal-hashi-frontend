@@ -23,3 +23,9 @@ export const POLL_BALANCE = 30_000;
 export function formatBtc(sats: bigint): string {
 	return (Number(sats) / 1e8).toFixed(8);
 }
+
+/** Format a millisecond timestamp from SDK status objects for compact display. */
+export function formatTimestampMs(timestampMs: bigint | null | undefined): string | null {
+	if (timestampMs === null || timestampMs === undefined) return null;
+	return new Date(Number(timestampMs)).toLocaleString();
+}

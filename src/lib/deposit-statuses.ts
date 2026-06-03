@@ -1,6 +1,6 @@
 import type { DepositInfo, DepositStatus } from '@mysten-incubation/hashi';
 
-import { HASHI_OBJECT_ID, HASHI_PACKAGE_ID, suiClient } from './hashi';
+import { HASHI_OBJECT_ID, HASHI_PACKAGE_ID, hashi, suiClient } from './hashi';
 
 const OBJECT_BAG_ADDRESS_TYPE = '0x0000000000000000000000000000000000000000000000000000000000000002::dynamic_object_field::Wrapper<address>';
 
@@ -21,7 +21,10 @@ export async function getDepositStatusesByDigest(txDigest: string): Promise<Depo
 	const txData = txResult.Transaction ?? txResult.FailedTransaction;
 	if (!txData?.events) return [];
 
-	const requestsBagId = await fetchDepositRequestsBagId();
+	const [requestsBagId, depositTimeDelayMs] = await Promise.all([
+		fetchDepositRequestsBagId(),
+		fetchDepositTimeDelayMs(),
+	]);
 
 	const depositEvents = txData.events.filter(
 		(event: { eventType: string; json?: unknown }) =>
@@ -30,7 +33,7 @@ export async function getDepositStatusesByDigest(txDigest: string): Promise<Depo
 
 	return Promise.all(
 		depositEvents.map((event: { json: unknown }) =>
-			buildDepositInfo(event.json as DepositEventJson, txDigest, requestsBagId),
+			buildDepositInfo(event.json as DepositEventJson, txDigest, requestsBagId, depositTimeDelayMs),
 		),
 	);
 }
@@ -39,8 +42,11 @@ async function buildDepositInfo(
 	parsed: DepositEventJson,
 	txDigest: string,
 	requestsBagId: string | undefined,
+	depositTimeDelayMs: bigint | null,
 ): Promise<DepositInfo> {
 	let status: DepositStatus = 'unknown';
+	let approvalTimestampMs: bigint | null = null;
+	let confirmableAtMs: bigint | null = null;
 
 	try {
 		const { object } = await suiClient.getObject({
@@ -50,6 +56,11 @@ async function buildDepositInfo(
 
 		if (!object?.objectId) {
 			throw new Error('Deposit request not found');
+		}
+
+		approvalTimestampMs = getBigIntField(object.json, 'approval_timestamp_ms');
+		if (approvalTimestampMs !== null && depositTimeDelayMs !== null) {
+			confirmableAtMs = approvalTimestampMs + depositTimeDelayMs;
 		}
 
 		if (requestsBagId === undefined) {
@@ -80,9 +91,17 @@ async function buildDepositInfo(
 		btcTxid,
 		btcVout: parsed.utxo_id.vout,
 		timestampMs: BigInt(parsed.timestamp_ms),
+		approvalTimestampMs,
+		confirmableAtMs,
 		status,
 		suiTxDigest: txDigest,
 	};
+}
+
+async function fetchDepositTimeDelayMs(): Promise<bigint | null> {
+	return hashi.view.all()
+		.then((config) => config.bitcoinDepositTimeDelayMs)
+		.catch(() => null);
 }
 
 async function fetchDepositRequestsBagId(): Promise<string | undefined> {
@@ -128,6 +147,19 @@ function getFieldId(parent: Record<string, unknown> | undefined, field: string):
 		((obj.fields as Record<string, unknown> | undefined)?.id as Record<string, string> | undefined)?.id;
 
 	return id ?? null;
+}
+
+function getBigIntField(json: unknown, field: string): bigint | null {
+	if (!json || typeof json !== 'object') return null;
+
+	const root = json as Record<string, unknown>;
+	const value = (root.value ?? root.fields ?? root) as Record<string, unknown>;
+	const raw = value[field] ?? (value.fields as Record<string, unknown> | undefined)?.[field];
+
+	if (raw === null || raw === undefined) return null;
+	if (typeof raw === 'bigint') return raw;
+	if (typeof raw === 'string' || typeof raw === 'number') return BigInt(raw);
+	return null;
 }
 
 function serializeAddress(addr: string): Uint8Array {

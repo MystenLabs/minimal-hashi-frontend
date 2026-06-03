@@ -59,6 +59,8 @@ const depositAddress = await hashi.generateDepositAddress({
 });
 ```
 
+In SDK 0.3.x, this derives a 2-of-2 taproot address from the on-chain guardian BTC key and the MPC-derived child key. The call fails if the target deployment has not been guardian-provisioned.
+
 After the user sends BTC, find the outputs in their Bitcoin transaction that paid that address:
 
 ```ts

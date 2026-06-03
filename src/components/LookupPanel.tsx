@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
-import { CONFIG, POLL_DEPOSIT_STATUS, POLL_WITHDRAWAL_STATUS, formatBtc } from '../lib/constants';
+import { CONFIG, POLL_DEPOSIT_STATUS, POLL_WITHDRAWAL_STATUS, formatBtc, formatTimestampMs } from '../lib/constants';
 import { getDepositStatusesByDigest } from '../lib/deposit-statuses';
 import { formatBitcoinAddress, hashi } from '../lib/hashi';
 import { ExplorerLink } from './ExplorerLink';
@@ -118,6 +118,12 @@ export function LookupPanel() {
 								<span className="text-gray-400">Status:</span>
 								<StatusBadge status={depositStatus.status} />
 							</div>
+							{depositStatus.status === 'pending' && formatTimestampMs(depositStatus.confirmableAtMs) && (
+								<div className="flex justify-between text-sm">
+									<span className="text-gray-400">Confirmable after:</span>
+									<span>{formatTimestampMs(depositStatus.confirmableAtMs)}</span>
+								</div>
+							)}
 						</div>
 					))}
 				</div>

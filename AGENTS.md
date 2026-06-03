@@ -31,6 +31,7 @@ Single-page React app. Hashi protocol operations are delegated to the published 
 - All blockchain reads use React Query hooks.
 - Wallet signing uses `useDAppKit().signAndExecuteTransaction()`.
 - The SDK's `hashi.tx.*` methods build unsigned transactions for browser wallets.
+- `hashi.generateDepositAddress()` derives the current guardian+MPC 2-of-2 taproot address and requires guardian BTC config on the target deployment.
 - Deposit submission uses `hashi.bitcoin.lookupAllVouts()` and `hashi.view.findUsedUtxos()` before `hashi.tx.deposit({ utxos })`.
 - Withdrawal submission uses `hashi.view.withdrawalFees()` to enforce the current on-chain minimum before signing.
 - Withdrawal status values from the SDK are title-cased (`Requested`, `Approved`, `Processing`, `Signed`, `Confirmed`) except `cancelled`.

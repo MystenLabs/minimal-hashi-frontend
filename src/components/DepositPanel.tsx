@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useCurrentAccount, useDAppKit } from '@mysten/dapp-kit-react';
 import { useQuery } from '@tanstack/react-query';
 
-import { CONFIG, MEMPOOL_BASE_URL, POLL_DEPOSIT_STATUS, formatBtc } from '../lib/constants';
+import { CONFIG, MEMPOOL_BASE_URL, POLL_DEPOSIT_STATUS, formatBtc, formatTimestampMs } from '../lib/constants';
 import { getDepositStatusesByDigest } from '../lib/deposit-statuses';
 import { hashi } from '../lib/hashi';
 import { ExplorerLink } from './ExplorerLink';
@@ -118,6 +118,9 @@ export function DepositPanel() {
 			return POLL_DEPOSIT_STATUS;
 		},
 	});
+	const hasPendingSubmittedDeposit = submittedDeposits?.some(
+		(deposit) => deposit.status === 'pending' || deposit.status === 'unknown',
+	);
 
 	const handleSubmit = async () => {
 		if (!account || !btcTx) return;
@@ -266,9 +269,15 @@ export function DepositPanel() {
 												<span className="text-gray-400">Status:</span>
 												<StatusBadge status={deposit.status} />
 											</div>
+											{deposit.status === 'pending' && formatTimestampMs(deposit.confirmableAtMs) && (
+												<div className="flex justify-between text-sm">
+													<span className="text-gray-400">Confirmable after:</span>
+													<span>{formatTimestampMs(deposit.confirmableAtMs)}</span>
+												</div>
+											)}
 										</div>
 									))}
-									{submittedDeposits.some((deposit) => deposit.status === 'pending' || deposit.status === 'unknown') && (
+									{hasPendingSubmittedDeposit && (
 										<p className="text-xs text-gray-500 mt-2">
 											Waiting for 6 Bitcoin confirmations + committee verification. Polling every 15s...
 										</p>
