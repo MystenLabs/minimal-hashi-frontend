@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@mysten-incubation/hashi':
-        specifier: ^0.3.0
-        version: 0.3.0(@mysten/sui@2.15.0(typescript@5.9.3))
+        specifier: ^0.5.1
+        version: 0.5.1(@mysten/sui@2.15.0(typescript@5.9.3))
       '@mysten/dapp-kit-core':
         specifier: ^1.2.1
         version: 1.2.1(@mysten/sui@2.15.0(typescript@5.9.3))(typescript@5.9.3)
@@ -297,8 +297,8 @@ packages:
   '@lit/task@1.0.3':
     resolution: {integrity: sha512-1gJGJl8WON+2j0y9xfcD+XsS1rvcy3XDgsIhcdUW++yTR8ESjZW6o7dn8M8a4SZM8NnJe6ynS2cKWwsbfLOurg==}
 
-  '@mysten-incubation/hashi@0.3.0':
-    resolution: {integrity: sha512-R153YWluSSkumhXcWuOHeBiFTdOlFawxOuUj542aV0B9T2n3c04/+sBJ6HZusiwJVJIS03Nf7d9Bj6mXRdZ4EQ==}
+  '@mysten-incubation/hashi@0.5.1':
+    resolution: {integrity: sha512-5QtWZ2bwBRytFs+T8t5PR96Z6/fbUnyGl8bOe/GaN+9+HDO+ClEklKx2Pr/L+0NZJKRDopOo+Na4zlWPh97Wxw==}
     peerDependencies:
       '@mysten/sui': ^2.14.1
 
@@ -1201,7 +1201,7 @@ snapshots:
     dependencies:
       '@lit/reactive-element': 2.1.2
 
-  '@mysten-incubation/hashi@0.3.0(@mysten/sui@2.15.0(typescript@5.9.3))':
+  '@mysten-incubation/hashi@0.5.1(@mysten/sui@2.15.0(typescript@5.9.3))':
     dependencies:
       '@mysten/sui': 2.15.0(typescript@5.9.3)
       '@noble/curves': 2.0.1

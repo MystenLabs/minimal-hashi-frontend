@@ -8,7 +8,7 @@ export const dAppKit = createDAppKit({
 	createClient(network) {
 		return new SuiGrpcClient({
 			network,
-			baseUrl: FULLNODE_URLS[network] ?? FULLNODE_URLS.devnet,
+			baseUrl: FULLNODE_URLS[network] ?? FULLNODE_URLS.testnet,
 		});
 	},
 });

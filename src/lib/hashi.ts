@@ -10,7 +10,7 @@ import { CONFIG, FULLNODE_URLS } from './constants';
 
 export const suiClient = new SuiGrpcClient({
 	network: CONFIG.DEFAULT_NETWORK,
-	baseUrl: FULLNODE_URLS[CONFIG.DEFAULT_NETWORK] ?? FULLNODE_URLS.devnet,
+	baseUrl: FULLNODE_URLS[CONFIG.DEFAULT_NETWORK] ?? FULLNODE_URLS.testnet,
 });
 
 export const HASHI_PACKAGE_ID = CONFIG.HASHI_PACKAGE_ID;
@@ -21,8 +21,7 @@ const SUI_NETWORK = CONFIG.DEFAULT_NETWORK as SuiNetwork;
 export const BTC_NETWORK: BitcoinNetwork =
 	CONFIG.DEFAULT_NETWORK === 'mainnet' ? 'mainnet'
 		: CONFIG.DEFAULT_NETWORK === 'localnet' ? 'regtest'
-		: CONFIG.DEFAULT_NETWORK === 'devnet' ? 'signet'
-		: 'testnet';
+		: 'signet';
 
 export const hashi = new HashiClient({
 	client: suiClient,

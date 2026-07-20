@@ -1,4 +1,5 @@
 import type { DepositInfo, DepositStatus } from '@mysten-incubation/hashi';
+import { bcs } from '@mysten/sui/bcs';
 
 import { HASHI_OBJECT_ID, HASHI_PACKAGE_ID, hashi, suiClient } from './hashi';
 
@@ -28,7 +29,7 @@ export async function getDepositStatusesByDigest(txDigest: string): Promise<Depo
 
 	const depositEvents = txData.events.filter(
 		(event: { eventType: string; json?: unknown }) =>
-			event.eventType.includes('::deposit::DepositRequestedEvent') && !!event.json,
+			event.eventType.includes('::deposit::DepositRequested') && !!event.json,
 	);
 
 	return Promise.all(
@@ -58,7 +59,7 @@ async function buildDepositInfo(
 			throw new Error('Deposit request not found');
 		}
 
-		approvalTimestampMs = getBigIntField(object.json, 'approval_timestamp_ms');
+		approvalTimestampMs = getBigIntField(object.json, 'approved_timestamp_ms');
 		if (approvalTimestampMs !== null && depositTimeDelayMs !== null) {
 			confirmableAtMs = approvalTimestampMs + depositTimeDelayMs;
 		}
@@ -69,7 +70,7 @@ async function buildDepositInfo(
 			const reqResult = await suiClient
 				.getDynamicField({
 					parentId: requestsBagId,
-					name: { type: OBJECT_BAG_ADDRESS_TYPE, bcs: serializeAddress(parsed.request_id) },
+					name: { type: OBJECT_BAG_ADDRESS_TYPE, bcs: bcs.Address.serialize(parsed.request_id).toBytes() },
 				})
 				.catch(() => null);
 
@@ -110,7 +111,7 @@ async function fetchDepositRequestsBagId(): Promise<string | undefined> {
 			parentId: HASHI_OBJECT_ID,
 			name: {
 				type: `${HASHI_PACKAGE_ID}::bitcoin_state::BitcoinStateKey`,
-				bcs: new Uint8Array([0]),
+				bcs: bcs.bool().serialize(false).toBytes(),
 			},
 		});
 
@@ -160,14 +161,4 @@ function getBigIntField(json: unknown, field: string): bigint | null {
 	if (typeof raw === 'bigint') return raw;
 	if (typeof raw === 'string' || typeof raw === 'number') return BigInt(raw);
 	return null;
-}
-
-function serializeAddress(addr: string): Uint8Array {
-	const hex = addr.startsWith('0x') ? addr.slice(2) : addr;
-	const padded = hex.padStart(64, '0');
-	const bytes = new Uint8Array(32);
-	for (let i = 0; i < 32; i += 1) {
-		bytes[i] = parseInt(padded.slice(i * 2, i * 2 + 2), 16);
-	}
-	return bytes;
 }

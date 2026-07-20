@@ -6,7 +6,7 @@ Minimal reference implementation of the Hashi BTC bridge frontend for Sui. This 
 
 ## Commands
 
-- `pnpm dev` — Start dev server in devnet mode
+- `pnpm dev` — Start dev server in testnet mode
 - `pnpm build` — Type check and production build
 - `npx tsc --noEmit` — Type check only
 
@@ -21,8 +21,8 @@ Single-page React app. Hashi protocol operations are delegated to the published 
 - `src/components/ExplorerLink.tsx` — Clickable and copiable links to Suiscan / mempool.space.
 - `src/components/StatusBadge.tsx` — Colored status badge.
 - `src/lib/hashi.ts` — Singleton `HashiClient`, standalone `SuiGrpcClient`, deployment config exports, and Bitcoin address encode/decode helpers.
-- `src/lib/deposit-statuses.ts` — Frontend helper for multi-deposit lookup by digest. It reads all `DepositRequestedEvent`s because `hashi.view.depositStatus()` returns one request.
-- `src/lib/constants.ts` — Env vars, fullnode URLs, explorer URL constants, polling intervals, `formatBtc()`.
+- `src/lib/deposit-statuses.ts` — Frontend helper for multi-deposit lookup by digest. It reads all `DepositRequested` events because `hashi.view.depositStatus()` returns one request.
+- `src/lib/constants.ts` — Testnet deployment defaults, environment overrides, fullnode URLs, explorer URL constants, polling intervals, `formatBtc()`.
 - `src/dapp-kit.ts` — dApp Kit 2.0 configuration with `SuiGrpcClient`.
 - `src/main.tsx` — Entry point with `DAppKitProvider` and `QueryClientProvider`.
 
@@ -47,10 +47,10 @@ Single-page React app. Hashi protocol operations are delegated to the published 
 
 ## Environment
 
-- Devnet config lives in `.env.devnet`.
+- Testnet deployment defaults live in the SDK and `src/lib/constants.ts`; developers set `VITE_BTC_RPC_URL` in `.env.local` to enable Bitcoin transaction-output lookup.
 - Fullnode URLs are hardcoded per network in `src/lib/constants.ts`.
-- To target other networks, create `.env.testnet` / `.env.mainnet` with the corresponding deployment IDs.
-- Bitcoin network encoding is derived in `src/lib/hashi.ts`: Sui `devnet` maps to BTC `signet`, Sui `mainnet` maps to BTC `mainnet`, Sui `localnet` maps to BTC `regtest`, and other Sui networks map to BTC `testnet`.
+- SDK 0.5+ includes Hashi's standard testnet deployment IDs; environment IDs are explicit overrides.
+- Bitcoin network encoding is derived in `src/lib/hashi.ts`: Sui `testnet` and `devnet` map to BTC `signet`, Sui `mainnet` maps to BTC `mainnet`, and Sui `localnet` maps to BTC `regtest`.
 
 ## Style
 
