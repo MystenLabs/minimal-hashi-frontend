@@ -4,12 +4,12 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --mode devnet",
+    "dev": "vite --mode testnet",
     "build": "tsc && vite build",
     "codegen": "echo 'Codegen no longer needed — using @mysten-incubation/hashi'"
   },
   "dependencies": {
-    "@mysten-incubation/hashi": "^0.3.0",
+    "@mysten-incubation/hashi": "^0.5.1",
     "@mysten/dapp-kit-core": "^1.2.1",
     "@mysten/dapp-kit-react": "^2.0.1",
     "@mysten/sui": "^2.13.3",

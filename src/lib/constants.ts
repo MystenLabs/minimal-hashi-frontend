@@ -1,7 +1,18 @@
+const DEFAULT_NETWORK = (import.meta.env.VITE_DEFAULT_NETWORK ?? 'testnet') as string;
+
+// These match the SDK's built-in testnet deployment config. Keep environment
+// overrides so the guide remains usable with a custom deployment.
+const TESTNET_HASHI_DEPLOYMENT = {
+	objectId: '0x22c0ce66ce09df2dc88a31bd320d4177b766518b9b88010368cfbdcd724528f8',
+	packageId: '0xfcea10cadbb553c4874201584abf68771592678952efd957b2e82c010c7f4360',
+};
+
+const DEFAULT_HASHI_DEPLOYMENT = DEFAULT_NETWORK === 'testnet' ? TESTNET_HASHI_DEPLOYMENT : undefined;
+
 export const CONFIG = {
-	DEFAULT_NETWORK: (import.meta.env.VITE_DEFAULT_NETWORK ?? 'testnet') as string,
-	HASHI_OBJECT_ID: import.meta.env.VITE_HASHI_OBJECT_ID ?? '',
-	HASHI_PACKAGE_ID: import.meta.env.VITE_HASHI_PACKAGE_ID ?? '',
+	DEFAULT_NETWORK,
+	HASHI_OBJECT_ID: import.meta.env.VITE_HASHI_OBJECT_ID ?? DEFAULT_HASHI_DEPLOYMENT?.objectId ?? '',
+	HASHI_PACKAGE_ID: import.meta.env.VITE_HASHI_PACKAGE_ID ?? DEFAULT_HASHI_DEPLOYMENT?.packageId ?? '',
 	BTC_RPC_URL: import.meta.env.VITE_BTC_RPC_URL ?? '',
 } as const;
 

@@ -22,21 +22,19 @@ import { HashiClient } from '@mysten-incubation/hashi';
 import { SuiGrpcClient } from '@mysten/sui/grpc';
 
 const suiClient = new SuiGrpcClient({
-  network: 'devnet',
-  baseUrl: 'https://fullnode.devnet.sui.io:443',
+  network: 'testnet',
+  baseUrl: 'https://fullnode.testnet.sui.io:443',
 });
 
 export const hashi = new HashiClient({
   client: suiClient,
-  network: 'devnet',
-  packageId: '0x...',
-  hashiObjectId: '0x...',
+  network: 'testnet',
   bitcoinNetwork: 'signet',
   btcRpcUrl: 'https://...',
 });
 ```
 
-Use deployment IDs for the Sui network you target. `btcRpcUrl` is optional, but without it your UI must ask users for the Bitcoin output index and amount manually.
+The 0.5 SDK includes the Hashi testnet deployment IDs, so no overrides are needed for the standard deployment. `btcRpcUrl` is optional, but without it your UI must ask users for the Bitcoin output index and amount manually.
 
 ## 2. Sign With a Wallet
 
@@ -59,7 +57,7 @@ const depositAddress = await hashi.generateDepositAddress({
 });
 ```
 
-In SDK 0.3.x, this derives a 2-of-2 taproot address from the on-chain guardian BTC key and the MPC-derived child key. The call fails if the target deployment has not been guardian-provisioned.
+In SDK 0.5.x, this derives a 2-of-2 taproot address from the on-chain guardian BTC key and the MPC-derived child key. The call fails if the target deployment has not been guardian-provisioned.
 
 After the user sends BTC, find the outputs in their Bitcoin transaction that paid that address:
 
@@ -149,11 +147,11 @@ Status polling is frontend-owned. This app uses React Query `refetchInterval` an
 
 `hashi.tx.deposit({ utxos })` can create multiple deposit requests in one Sui transaction. The SDK's `hashi.view.depositStatus(txDigest)` returns one request, which is enough for the common one-output case.
 
-If your UI submits multiple UTXOs at once and needs to display every request from the digest, read every `DepositRequestedEvent`. This repo does that in [src/lib/deposit-statuses.ts](src/lib/deposit-statuses.ts).
+If your UI submits multiple UTXOs at once and needs to display every request from the digest, read every `DepositRequested` event. This repo does that in [src/lib/deposit-statuses.ts](src/lib/deposit-statuses.ts).
 
 ## Integration Checklist
 
-1. Create a `HashiClient` with your Sui client and deployment config.
+1. Create a `HashiClient` with your Sui client and a supported network (testnet is built in to SDK 0.5+).
 2. Generate a BTC deposit address with `hashi.generateDepositAddress()`.
 3. Look up BTC outputs with `hashi.bitcoin.lookupAllVouts()` or collect `vout` and amount manually.
 4. Filter reused outputs with `hashi.view.findUsedUtxos()`.
