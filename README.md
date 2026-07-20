@@ -19,10 +19,10 @@ Open the Vite URL and connect a Sui wallet.
 
 No environment file is needed for Hashi's standard testnet deployment: the SDK and this app default to its package and object IDs.
 
-To enable automatic Bitcoin transaction-output lookup, create a local, untracked [`.env.local`](.env.local):
+To enable automatic Bitcoin transaction-output lookup, copy [`.env.example`](.env.example) to a local, untracked `.env.local` and replace the placeholder with your signet Bitcoin RPC endpoint:
 
-```dotenv
-VITE_BTC_RPC_URL=https://your-signet-bitcoin-rpc.example.com/
+```bash
+cp .env.example .env.local
 ```
 
 Hashi on Sui testnet uses Bitcoin signet. [src/lib/hashi.ts](src/lib/hashi.ts) maps Sui `testnet` and `devnet` to Bitcoin `signet`, `mainnet` to Bitcoin `mainnet`, and `localnet` to Bitcoin `regtest`.

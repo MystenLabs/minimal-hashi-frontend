@@ -1,4 +1,5 @@
 node_modules
 dist
+.env.local
 # commit this so we can deploy on vercel
 # contracts/src/
