@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "tsc && vite build"
   },
   "dependencies": {
     "@mysten-incubation/hashi": "^0.5.1",
