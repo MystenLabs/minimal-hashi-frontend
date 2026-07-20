@@ -6,7 +6,6 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "codegen": "echo 'Codegen no longer needed — using @mysten-incubation/hashi'"
   },
   "dependencies": {
     "@mysten-incubation/hashi": "^0.5.1",
