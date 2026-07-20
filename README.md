@@ -17,24 +17,17 @@ Open the Vite URL and connect a Sui wallet.
 
 ## Configuration
 
-Environment variables in [`.env.testnet`](.env.testnet):
+No environment file is needed for Hashi's standard testnet deployment: the SDK and this app default to its package and object IDs.
 
-| Variable | Description |
-| --- | --- |
-| `VITE_DEFAULT_NETWORK` | Sui network, `testnet` for this reference app |
-| `VITE_HASHI_PACKAGE_ID` | Optional Hashi Move package ID override |
-| `VITE_HASHI_OBJECT_ID` | Optional Hashi shared object ID override |
-| `VITE_BTC_RPC_URL` | Bitcoin JSON-RPC endpoint for transaction-output lookup |
+To enable automatic Bitcoin transaction-output lookup, create a local, untracked [`.env.local`](.env.local):
 
-To target a different deployment, create the matching environment file and run Vite with that mode:
-
-```bash
-pnpm vite --mode testnet
+```dotenv
+VITE_BTC_RPC_URL=https://your-signet-bitcoin-rpc.example.com/
 ```
 
 Hashi on Sui testnet uses Bitcoin signet. [src/lib/hashi.ts](src/lib/hashi.ts) maps Sui `testnet` and `devnet` to Bitcoin `signet`, `mainnet` to Bitcoin `mainnet`, and `localnet` to Bitcoin `regtest`.
 
-The SDK and this app both default to Hashi's standard testnet deployment. Set the package/object environment variables only to override that deployment.
+For a custom deployment, set `VITE_DEFAULT_NETWORK`, `VITE_HASHI_PACKAGE_ID`, and `VITE_HASHI_OBJECT_ID` in the appropriate Vite environment file.
 
 ## Deposit Behavior
 

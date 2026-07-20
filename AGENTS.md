@@ -47,7 +47,7 @@ Single-page React app. Hashi protocol operations are delegated to the published 
 
 ## Environment
 
-- Testnet config lives in `.env.testnet`.
+- Testnet deployment defaults live in the SDK and `src/lib/constants.ts`; developers set `VITE_BTC_RPC_URL` in `.env.local` to enable Bitcoin transaction-output lookup.
 - Fullnode URLs are hardcoded per network in `src/lib/constants.ts`.
 - SDK 0.5+ includes Hashi's standard testnet deployment IDs; environment IDs are explicit overrides.
 - Bitcoin network encoding is derived in `src/lib/hashi.ts`: Sui `testnet` and `devnet` map to BTC `signet`, Sui `mainnet` maps to BTC `mainnet`, and Sui `localnet` maps to BTC `regtest`.
